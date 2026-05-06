@@ -31,6 +31,11 @@ COPY ./ /git/agent-zero
 # The app preloads on first startup instead (identical behaviour).
 RUN sed -i 's|python /git/agent-zero/preload.py --dockerized=true|echo "Skipping preload.py at build time — will run on first startup"|g' /ins/install_A0.sh
 
+# Patch self_update_manager.py to listen on port 10000 instead of 80.
+# Render routes external traffic to the port the app binds to — on free tier
+# this must be 10000 (or whatever $PORT Render sets). Port 80 is never detected.
+RUN sed -i 's|"--port=80"|"--port=10000"|g' /exe/self_update_manager.py
+
 # Pre-install steps (apt update, SSH setup)
 RUN bash /ins/pre_install.sh $BRANCH
 
@@ -48,8 +53,8 @@ RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
 # Post-install steps
 RUN bash /ins/post_install.sh $BRANCH
 
-# Agent Zero web UI runs on port 80 inside the container
-EXPOSE 80
+# Render routes to port 10000 (patched above in self_update_manager.py)
+EXPOSE 10000
 
 RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh
 
