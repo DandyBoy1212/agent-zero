@@ -13,6 +13,12 @@ docker==7.1.0
 duckduckgo-search==6.1.12
 pyreqwest-impersonate==0.5.3  # freeze nearest wheel-backed release; 0.5.5 is source-only (needs Rust/cmake)
 sentence-transformers==3.0.1  # required by models.py top-level import; already in base image venv so uv skips download
+# Packages imported at preload time — must be listed even if in base image
+litellm>=1.63.0  # models.py top-level import
+openai>=1.0.0  # models.py top-level import
+openai-whisper==20250625  # helpers/whisper.py import
+kokoro>=0.9.2  # helpers/kokoro_tts.py import
+tiktoken==0.8.0  # required by litellm/openai at import time
 fastmcp==3.2.4
 fasta2a==0.5.0
 flask[async]==3.0.3
