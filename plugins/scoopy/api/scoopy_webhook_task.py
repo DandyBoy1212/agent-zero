@@ -23,7 +23,7 @@ if str(_HELPERS) not in sys.path:
 from webhook_dispatch import verify_signature, extract_contact_id  # noqa: E402
 from webhook_task_dispatch import (  # noqa: E402
     extract_task,
-    is_delete_event,
+    determine_event,
     build_task_doc,
 )
 from firestore_client import FirestoreClient  # noqa: E402
@@ -83,7 +83,8 @@ class ScoopyWebhookTask(ApiHandler):
 
         fs = FirestoreClient()
 
-        if is_delete_event(payload):
+        event = determine_event(payload)
+        if event["is_delete"]:
             try:
                 fs.delete_task(task_id)
             except Exception as e:
@@ -99,6 +100,7 @@ class ScoopyWebhookTask(ApiHandler):
             contact_id=contact_id,
             contact_name=contact_name,
             fallback_assigned_to=scoopy_id,
+            force_completed=event["force_completed"],
         )
         try:
             fs.upsert_task(cache_doc)

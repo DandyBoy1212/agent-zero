@@ -16,6 +16,7 @@ from webhook_task_dispatch import (
     parse_task_type,
     extract_task,
     is_delete_event,
+    determine_event,
     build_task_doc,
 )
 
@@ -155,3 +156,73 @@ def test_build_task_doc_assembles_full_shape():
     assert doc["assigned_to"] == "scoopy-id"
     assert doc["contact_id"] == "c1"
     assert doc["completed"] is False
+
+
+# --- determine_event + force_completed override -------------------------
+
+
+def test_determine_event_completed_lowercase():
+    out = determine_event({"event_type": "completed"})
+    assert out == {"is_delete": False, "force_completed": True}
+
+
+def test_determine_event_completed_mixed_case():
+    out = determine_event({"event_type": "Completed"})
+    assert out["force_completed"] is True
+    assert out["is_delete"] is False
+
+
+def test_determine_event_deleted_via_event_type():
+    out = determine_event({"event_type": "deleted"})
+    assert out == {"is_delete": True, "force_completed": None}
+
+
+def test_determine_event_created_returns_no_override():
+    out = determine_event({"event_type": "created"})
+    assert out == {"is_delete": False, "force_completed": None}
+
+
+def test_determine_event_absent_returns_no_override():
+    out = determine_event({})
+    assert out == {"is_delete": False, "force_completed": None}
+
+
+def test_determine_event_falls_back_to_legacy_event_field():
+    # Legacy payloads with `event` / `type` still detected as delete.
+    assert determine_event({"event": "TaskDeleted"})["is_delete"] is True
+    assert determine_event({"type": "task.delete"})["is_delete"] is True
+
+
+def test_build_task_doc_force_completed_overrides_false():
+    task = {"id": "t1", "title": "[REPLY] hi", "completed": False}
+    doc = build_task_doc(
+        task=task,
+        payload={},
+        contact_id="c1",
+        contact_name=None,
+        fallback_assigned_to="scoopy-id",
+        force_completed=True,
+    )
+    assert doc["completed"] is True
+
+
+def test_build_task_doc_force_completed_none_uses_task_field():
+    task = {"id": "t1", "title": "[REPLY] hi", "completed": True}
+    doc = build_task_doc(
+        task=task,
+        payload={},
+        contact_id="c1",
+        contact_name=None,
+        fallback_assigned_to="scoopy-id",
+        force_completed=None,
+    )
+    assert doc["completed"] is True
+    # And without the kwarg at all (default behaviour):
+    doc2 = build_task_doc(
+        task={"id": "t2", "title": "x", "completed": False},
+        payload={},
+        contact_id=None,
+        contact_name=None,
+        fallback_assigned_to=None,
+    )
+    assert doc2["completed"] is False

@@ -69,12 +69,39 @@ def extract_task(payload: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def is_delete_event(payload: dict[str, Any]) -> bool:
-    """Return True if the payload looks like a task-delete event."""
+def determine_event(payload: dict[str, Any]) -> dict[str, Any]:
+    """Inspect the payload's event_type custom-data field plus existing
+    event/type indicators. Returns:
+      {"is_delete": bool, "force_completed": bool | None}
+
+    is_delete: route to Firestore delete
+    force_completed: if not None, override task.completed in the cached doc
+    """
     if not isinstance(payload, dict):
-        return False
-    event = (payload.get("event") or payload.get("type") or "").lower()
-    return "delete" in event or "remove" in event
+        return {"is_delete": False, "force_completed": None}
+    event_str = (
+        payload.get("event_type")
+        or payload.get("eventType")
+        or payload.get("event")
+        or payload.get("type")
+        or ""
+    )
+    event_lower = str(event_str).lower()
+
+    if "delet" in event_lower or "remove" in event_lower:
+        return {"is_delete": True, "force_completed": None}
+    if "complet" in event_lower:
+        return {"is_delete": False, "force_completed": True}
+    # created / updated / absent → use task fields as-is
+    return {"is_delete": False, "force_completed": None}
+
+
+def is_delete_event(payload: dict[str, Any]) -> bool:
+    """Return True if the payload looks like a task-delete event.
+
+    Backward-compatible wrapper around `determine_event`.
+    """
+    return determine_event(payload)["is_delete"]
 
 
 def build_task_doc(
@@ -84,14 +111,22 @@ def build_task_doc(
     contact_id: str | None,
     contact_name: str | None,
     fallback_assigned_to: str | None,
+    force_completed: bool | None = None,
 ) -> dict[str, Any]:
-    """Build the Firestore document from a task + payload."""
+    """Build the Firestore document from a task + payload.
+
+    If `force_completed` is not None, override `task.completed` with that value
+    (used when an upstream `event_type=completed` hint is present).
+    """
     title = task.get("title", "") or ""
     assigned = (
         task.get("assignedTo")
         or payload.get("assignedTo")
         or fallback_assigned_to
     )
+    completed = bool(task.get("completed", False))
+    if force_completed is not None:
+        completed = bool(force_completed)
     return {
         "id": task.get("id"),
         "contact_id": contact_id,
@@ -99,7 +134,7 @@ def build_task_doc(
         "title": title,
         "body": task.get("body", "") or "",
         "due_date": task.get("dueDate") or task.get("due_date"),
-        "completed": bool(task.get("completed", False)),
+        "completed": completed,
         "assigned_to": assigned,
         "task_type": parse_task_type(title),
     }
