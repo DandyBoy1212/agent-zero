@@ -15,6 +15,7 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.tool import Tool, Response
 from skill_mem0_search import mem0_search as _search_helper
+from scoopy_logging import log, log_error
 
 
 class Mem0Search(Tool):
@@ -22,6 +23,7 @@ class Mem0Search(Tool):
 
     async def execute(self, **kwargs) -> Response:
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="mem0_search", args_keys=",".join(sorted(args.keys())))
         namespace = args.get("namespace") or kwargs.get("namespace")
         query = args.get("query") or kwargs.get("query")
         limit = args.get("limit") or kwargs.get("limit", 5)
@@ -44,7 +46,9 @@ class Mem0Search(Tool):
         try:
             memories = _search_helper(namespace=namespace, query=query, limit=limit)
         except Exception as e:
+            log_error("tool_result", e, name="mem0_search", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
+        log("tool_result", name="mem0_search", outcome="success", count=len(memories))
 
         msg = (
             f"Found {len(memories)} memory(ies) in namespace '{namespace}' "

@@ -16,6 +16,7 @@ if str(_HELPERS) not in sys.path:
 from helpers.tool import Tool, Response
 from skill_ghl_search_contact import ghl_search_contact as _search_helper
 from ghl_client import GhlClient
+from scoopy_logging import log, log_error
 
 
 class GhlSearchContact(Tool):
@@ -23,6 +24,7 @@ class GhlSearchContact(Tool):
 
     async def execute(self, **kwargs) -> Response:
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="ghl_search_contact", args_keys=",".join(sorted(args.keys())))
         query = args.get("query") or kwargs.get("query")
         limit = args.get("limit") or kwargs.get("limit", 10)
 
@@ -41,7 +43,9 @@ class GhlSearchContact(Tool):
             client = GhlClient()
             contacts = _search_helper(client=client, query=query, limit=limit)
         except Exception as e:
+            log_error("tool_result", e, name="ghl_search_contact", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
+        log("tool_result", name="ghl_search_contact", outcome="success", count=len(contacts))
 
         # Trim to the fields the agent actually needs to pick a contact.
         compact = [

@@ -18,6 +18,7 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.tool import Tool, Response
 from skill_notify_owner import notify_owner as _notify_owner_helper
+from scoopy_logging import log
 
 
 class NotifyOwner(Tool):
@@ -31,6 +32,7 @@ class NotifyOwner(Tool):
         # Tool args come via self.args (Agent Zero convention); also accept
         # kwargs as a defensive fallback.
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="notify_owner", args_keys=",".join(sorted(args.keys())))
         contact_id = args.get("contact_id") or kwargs.get("contact_id")
         draft = args.get("draft") or kwargs.get("draft", "")
         reasoning = args.get("reasoning") or kwargs.get("reasoning", "")
@@ -83,6 +85,7 @@ class NotifyOwner(Tool):
             else "/api/plugins/scoopy/scoopy_inbox"
         )
 
+        log("tool_result", name="notify_owner", outcome="queued")
         msg = (
             f"✅ Drafted — queued for your approval.\n\n"
             f"Open the inbox to approve or edit: {inbox_url}\n\n"

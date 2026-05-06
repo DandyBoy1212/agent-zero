@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import httpx
 from typing import Any
+from scoopy_logging import log, log_error, timed
 
 BASE_URL = "https://services.leadconnectorhq.com"
 
@@ -28,12 +29,16 @@ class GhlClient:
         }
 
     def get_contact(self, contact_id: str) -> dict[str, Any]:
-        resp = self._client.get(f"{BASE_URL}/contacts/{contact_id}", headers=self._headers())
+        with timed("ghl_api", method="GET", path=f"/contacts/{contact_id}") as ctx:
+            resp = self._client.get(f"{BASE_URL}/contacts/{contact_id}", headers=self._headers())
+            ctx["status_code"] = resp.status_code
         resp.raise_for_status()
         return resp.json()
 
     def get_tasks_for_contact(self, contact_id: str) -> list[dict[str, Any]]:
-        resp = self._client.get(f"{BASE_URL}/contacts/{contact_id}/tasks", headers=self._headers())
+        with timed("ghl_api", method="GET", path=f"/contacts/{contact_id}/tasks") as ctx:
+            resp = self._client.get(f"{BASE_URL}/contacts/{contact_id}/tasks", headers=self._headers())
+            ctx["status_code"] = resp.status_code
         resp.raise_for_status()
         return resp.json().get("tasks", [])
 
@@ -51,9 +56,11 @@ class GhlClient:
             "query": query,
             "pageLimit": limit,
         }
-        resp = self._client.post(
-            f"{BASE_URL}/contacts/search", headers=self._headers(), json=payload
-        )
+        with timed("ghl_api", method="POST", path="/contacts/search") as ctx:
+            resp = self._client.post(
+                f"{BASE_URL}/contacts/search", headers=self._headers(), json=payload
+            )
+            ctx["status_code"] = resp.status_code
         resp.raise_for_status()
         return resp.json().get("contacts", [])
 
@@ -84,11 +91,13 @@ class GhlClient:
             ],
         }
         try:
-            resp = self._client.post(
-                f"{BASE_URL}/contacts/search",
-                headers=self._headers(),
-                json=filter_payload,
-            )
+            with timed("ghl_api", method="POST", path="/contacts/search") as ctx:
+                resp = self._client.post(
+                    f"{BASE_URL}/contacts/search",
+                    headers=self._headers(),
+                    json=filter_payload,
+                )
+                ctx["status_code"] = resp.status_code
             resp.raise_for_status()
             contacts = resp.json().get("contacts", [])
         except Exception:
@@ -109,18 +118,32 @@ class GhlClient:
         return [c for c in query_contacts if tag in (c.get("tags") or [])]
 
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
-        resp = self._client.get(f"{BASE_URL}/conversations/{conversation_id}/messages", headers=self._headers())
+        with timed("ghl_api", method="GET", path=f"/conversations/{conversation_id}/messages") as ctx:
+            resp = self._client.get(f"{BASE_URL}/conversations/{conversation_id}/messages", headers=self._headers())
+            ctx["status_code"] = resp.status_code
         resp.raise_for_status()
         return resp.json()
 
     def post(self, path: str, payload: dict[str, Any]) -> httpx.Response:
-        return self._client.post(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+        with timed("ghl_api", method="POST", path=path) as ctx:
+            resp = self._client.post(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+            ctx["status_code"] = resp.status_code
+        return resp
 
     def delete(self, path: str, payload: dict[str, Any] | None = None) -> httpx.Response:
-        return self._client.request("DELETE", f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+        with timed("ghl_api", method="DELETE", path=path) as ctx:
+            resp = self._client.request("DELETE", f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+            ctx["status_code"] = resp.status_code
+        return resp
 
     def patch(self, path: str, payload: dict[str, Any]) -> httpx.Response:
-        return self._client.patch(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+        with timed("ghl_api", method="PATCH", path=path) as ctx:
+            resp = self._client.patch(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+            ctx["status_code"] = resp.status_code
+        return resp
 
     def put(self, path: str, payload: dict[str, Any]) -> httpx.Response:
-        return self._client.put(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+        with timed("ghl_api", method="PUT", path=path) as ctx:
+            resp = self._client.put(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+            ctx["status_code"] = resp.status_code
+        return resp

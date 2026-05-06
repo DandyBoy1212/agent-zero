@@ -27,6 +27,7 @@ from webhook_task_dispatch import (  # noqa: E402
     build_task_doc,
 )
 from firestore_client import FirestoreClient  # noqa: E402
+from scoopy_logging import log, log_error  # noqa: E402
 
 
 class ScoopyWebhookTask(ApiHandler):
@@ -61,6 +62,14 @@ class ScoopyWebhookTask(ApiHandler):
 
         payload: dict[str, Any] = input or {}
         task = extract_task(payload)
+        event = determine_event(payload) if task else {"is_delete": False, "force_completed": None}
+        log(
+            "webhook_received",
+            endpoint="scoopy_webhook_task",
+            event_type=payload.get("event_type") or payload.get("eventType") or payload.get("event") or payload.get("type"),
+            task_id=(task or {}).get("id") if task else None,
+            force_completed=event.get("force_completed"),
+        )
         if not task:
             return {"status": "ignored", "reason": "no task in payload"}
 
@@ -83,11 +92,11 @@ class ScoopyWebhookTask(ApiHandler):
 
         fs = FirestoreClient()
 
-        event = determine_event(payload)
         if event["is_delete"]:
             try:
                 fs.delete_task(task_id)
             except Exception as e:
+                log_error("firestore", e, op="delete", doc_id=task_id, status="error")
                 return {
                     "status": "error",
                     "reason": f"firestore delete failed: {e}",
@@ -105,6 +114,7 @@ class ScoopyWebhookTask(ApiHandler):
         try:
             fs.upsert_task(cache_doc)
         except Exception as e:
+            log_error("firestore", e, op="upsert", doc_id=task_id, status="error")
             return {"status": "error", "reason": f"firestore upsert failed: {e}"}
         return {
             "status": "cached",

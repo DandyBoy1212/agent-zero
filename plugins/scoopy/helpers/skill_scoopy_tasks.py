@@ -9,6 +9,7 @@ from datetime import date
 from typing import Any
 
 from firestore_client import FirestoreClient
+from scoopy_logging import log
 
 
 def scoopy_get_tasks_for_today(
@@ -24,6 +25,7 @@ def scoopy_get_tasks_for_today(
 
     Returns: {"reply": [...], "action_due": [...]}
     """
+    log("skill_helper_call", name="scoopy_get_tasks_for_today")
     fs = fs or FirestoreClient()
     scoopy_id = os.getenv("SCOOPY_USER_ID")
     today_iso = date.today().isoformat()
@@ -37,6 +39,13 @@ def scoopy_get_tasks_for_today(
         task_type="ACTION",
         due_on_or_before=today_iso,
     )
+    log(
+        "skill_helper_result",
+        name="scoopy_get_tasks_for_today",
+        status="success",
+        reply_count=len(reply),
+        action_due_count=len(action_due),
+    )
     return {"reply": reply, "action_due": action_due}
 
 
@@ -48,6 +57,7 @@ def scoopy_get_outstanding_tasks(
     Use when the operator asks "what's outstanding" / "show me everything
     Scoopy is watching."
     """
+    log("skill_helper_call", name="scoopy_get_outstanding_tasks")
     fs = fs or FirestoreClient()
     scoopy_id = os.getenv("SCOOPY_USER_ID")
 
@@ -59,5 +69,13 @@ def scoopy_get_outstanding_tasks(
     )
     other = fs.query_tasks(
         assigned_to=scoopy_id, completed=False, task_type="OTHER"
+    )
+    log(
+        "skill_helper_result",
+        name="scoopy_get_outstanding_tasks",
+        status="success",
+        reply_count=len(reply),
+        action_count=len(action),
+        other_count=len(other),
     )
     return {"reply": reply, "action": action, "other": other}

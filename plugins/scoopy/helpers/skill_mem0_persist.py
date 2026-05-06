@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 from mem0_client import Mem0Client
 from auto_note import post_auto_note
+from scoopy_logging import log, log_error
 
 
 def mem0_persist(
@@ -20,6 +21,7 @@ def mem0_persist(
     client,  # GhlClient passed by dispatcher (used for the auto-note)
     mem0_client: Mem0Client | None = None,
 ) -> dict[str, Any]:
+    log("skill_helper_call", name="mem0_persist", namespace=namespace)
     mc = mem0_client or Mem0Client()
     metadata = {
         "approved_by": approver,
@@ -40,6 +42,7 @@ def mem0_persist(
                 approver=approver,
                 result=f"error: {type(e).__name__}: {e}",
             )
+        log_error("skill_helper_result", e, name="mem0_persist", status="error")
         return {"status": "error", "reason": f"{type(e).__name__}: {e}"}
 
     memory_id: Any = None
@@ -62,4 +65,5 @@ def mem0_persist(
             payload_summary=f"Remembered: {fact[:300]}",
         )
 
+    log("skill_helper_result", name="mem0_persist", status="success", memory_id=memory_id, namespace=namespace)
     return {"status": "success", "memory_id": memory_id, "namespace": namespace}

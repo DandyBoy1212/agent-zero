@@ -13,6 +13,7 @@ import os
 from typing import Any
 
 from skills_ghl_get import ghl_get_tasks_for_contact
+from scoopy_logging import log
 
 
 def ghl_list_watching_contacts(
@@ -43,6 +44,7 @@ def ghl_list_watching_contacts(
                 # "tasks_error": "..."  # only if the per-contact tasks fetch failed
             }
     """
+    log("skill_helper_call", name="ghl_list_watching_contacts", tag=tag, include_tasks=include_tasks)
     # Prefer the by-tag client method if available; fall back to query-based
     # search filtered in-process.
     if hasattr(client, "search_contacts_by_tag"):
@@ -83,4 +85,5 @@ def ghl_list_watching_contacts(
 
         results.append(entry)
 
+    log("skill_helper_result", name="ghl_list_watching_contacts", status="success", count=len(results))
     return results

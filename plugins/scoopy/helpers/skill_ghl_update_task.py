@@ -11,6 +11,7 @@ Approval-gated: only called by execute_with_approval after a valid token is cons
 from __future__ import annotations
 from typing import Any
 from auto_note import post_auto_note
+from scoopy_logging import log
 
 
 def ghl_update_task(
@@ -25,6 +26,7 @@ def ghl_update_task(
     due_date: str | None = None,
     completed: bool | None = None,
 ) -> dict[str, Any]:
+    log("skill_helper_call", name="ghl_update_task", contact_id=contact_id, task_id=task_id)
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -57,6 +59,7 @@ def ghl_update_task(
             result=f"success: task_id={task_id}",
             payload_summary=summary,
         )
+        log("skill_helper_result", name="ghl_update_task", status="success", task_id=task_id)
         return {"status": "success", "task_id": task_id}
     post_auto_note(
         client=client,
@@ -67,4 +70,5 @@ def ghl_update_task(
         result=f"error: status={resp.status_code}",
         payload_summary=summary,
     )
+    log("skill_helper_result", name="ghl_update_task", status="error", code=resp.status_code)
     return {"status": "error", "code": resp.status_code, "body": resp.text}

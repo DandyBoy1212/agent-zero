@@ -8,6 +8,7 @@ with provenance metadata.
 from __future__ import annotations
 from typing import Any
 from skill_notify_owner import notify_owner
+from scoopy_logging import log
 
 
 def mem0_save_candidate(
@@ -17,7 +18,8 @@ def mem0_save_candidate(
     fact: str,
     why_save: str,
 ) -> dict[str, Any]:
-    return notify_owner(
+    log("skill_helper_call", name="mem0_save_candidate", contact_id=contact_id, namespace=namespace)
+    result = notify_owner(
         contact_id=contact_id,
         draft=fact,  # the candidate IS the "draft" in this card
         reasoning=why_save,
@@ -29,3 +31,5 @@ def mem0_save_candidate(
             }
         ],
     )
+    log("skill_helper_result", name="mem0_save_candidate", status="success")
+    return result

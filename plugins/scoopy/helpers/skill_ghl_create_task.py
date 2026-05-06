@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from typing import Any
 from auto_note import post_auto_note
+from scoopy_logging import log
 
 
 def ghl_create_task(
@@ -24,6 +25,7 @@ def ghl_create_task(
     approver: str,
     assigned_to: str | None = None,
 ) -> dict[str, Any]:
+    log("skill_helper_call", name="ghl_create_task", contact_id=contact_id, title=title, due_date=due_date)
     if assigned_to is None:
         assigned_to = os.getenv("SCOOPY_USER_ID")
     payload = {
@@ -54,6 +56,7 @@ def ghl_create_task(
             result=f"success: task_id={task_id}",
             payload_summary=summary,
         )
+        log("skill_helper_result", name="ghl_create_task", status="success", task_id=task_id)
         return {"status": "success", "task_id": task_id, "title": title}
     post_auto_note(
         client=client,
@@ -63,4 +66,5 @@ def ghl_create_task(
         approver=approver,
         result=f"error: status={resp.status_code}",
     )
+    log("skill_helper_result", name="ghl_create_task", status="error", code=resp.status_code)
     return {"status": "error", "code": resp.status_code, "body": resp.text}

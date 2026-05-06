@@ -15,6 +15,7 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.tool import Tool, Response
 from skill_mem0_save_candidate import mem0_save_candidate as _save_candidate_helper
+from scoopy_logging import log, log_error
 
 
 class Mem0SaveCandidate(Tool):
@@ -22,6 +23,7 @@ class Mem0SaveCandidate(Tool):
 
     async def execute(self, **kwargs) -> Response:
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="mem0_save_candidate", args_keys=",".join(sorted(args.keys())))
         contact_id = args.get("contact_id") or kwargs.get("contact_id")
         namespace = args.get("namespace") or kwargs.get("namespace")
         fact = args.get("fact") or kwargs.get("fact")
@@ -56,7 +58,9 @@ class Mem0SaveCandidate(Tool):
                 why_save=why_save,
             )
         except ValueError as e:
+            log_error("tool_result", e, name="mem0_save_candidate", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
+        log("tool_result", name="mem0_save_candidate", outcome="queued")
 
         msg = (
             "Memory candidate queued for owner approval.\n"

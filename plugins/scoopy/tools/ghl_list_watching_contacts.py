@@ -16,6 +16,7 @@ if str(_HELPERS) not in sys.path:
 from helpers.tool import Tool, Response
 from skill_ghl_list_watching import ghl_list_watching_contacts as _list_helper
 from ghl_client import GhlClient
+from scoopy_logging import log, log_error
 
 
 def _coerce_bool(val, default: bool) -> bool:
@@ -70,6 +71,7 @@ class GhlListWatchingContacts(Tool):
 
     async def execute(self, **kwargs) -> Response:
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="ghl_list_watching_contacts", args_keys=",".join(sorted(args.keys())))
         include_tasks = _coerce_bool(
             args.get("include_tasks", kwargs.get("include_tasks")), default=True
         )
@@ -81,6 +83,8 @@ class GhlListWatchingContacts(Tool):
                 client=client, include_tasks=include_tasks, tag=tag
             )
         except Exception as e:
+            log_error("tool_result", e, name="ghl_list_watching_contacts", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
 
+        log("tool_result", name="ghl_list_watching_contacts", outcome="success", count=len(contacts))
         return Response(message=_render_markdown(contacts), break_loop=False)

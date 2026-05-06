@@ -12,6 +12,7 @@ from __future__ import annotations
 import secrets
 import time
 from typing import Any
+from scoopy_logging import log
 
 
 class ApprovalError(Exception):
@@ -26,6 +27,7 @@ class ApprovalStore:
     def issue(self, card: Any) -> str:
         token = secrets.token_urlsafe(24)
         self._items[token] = (time.time(), card)
+        log("approval_issued", token_prefix=token[:6])
         return token
 
     def consume(self, token: str) -> Any:

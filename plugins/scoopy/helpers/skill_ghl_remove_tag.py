@@ -5,6 +5,7 @@ Approval-gated: only called by execute_with_approval after a valid token is cons
 from __future__ import annotations
 from typing import Any
 from auto_note import post_auto_note
+from scoopy_logging import log
 
 
 def ghl_remove_tag(
@@ -15,6 +16,7 @@ def ghl_remove_tag(
     reasoning: str,
     approver: str,
 ) -> dict[str, Any]:
+    log("skill_helper_call", name="ghl_remove_tag", contact_id=contact_id, tag=tag_name)
     resp = client.delete(f"/contacts/{contact_id}/tags", payload={"tags": [tag_name]})
     if resp.status_code in (200, 201):
         post_auto_note(
@@ -26,6 +28,7 @@ def ghl_remove_tag(
             result=f"success: tag={tag_name}",
             payload_summary=f"Removed tag: {tag_name}",
         )
+        log("skill_helper_result", name="ghl_remove_tag", status="success", tag=tag_name)
         return {"status": "success", "tag": tag_name}
     post_auto_note(
         client=client,
@@ -35,4 +38,5 @@ def ghl_remove_tag(
         approver=approver,
         result=f"error: status={resp.status_code}",
     )
+    log("skill_helper_result", name="ghl_remove_tag", status="error", code=resp.status_code)
     return {"status": "error", "code": resp.status_code, "body": resp.text}

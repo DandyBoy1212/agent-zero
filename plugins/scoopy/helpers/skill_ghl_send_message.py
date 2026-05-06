@@ -8,6 +8,7 @@ The agent CANNOT call this directly.
 from __future__ import annotations
 from typing import Any
 from auto_note import post_auto_note
+from scoopy_logging import log
 
 
 def ghl_send_message(
@@ -18,6 +19,7 @@ def ghl_send_message(
     reasoning: str,
     approver: str,
 ) -> dict[str, Any]:
+    log("skill_helper_call", name="ghl_send_message", contact_id=contact_id, body_len=len(message or ""))
     # SendMessageBodyDto requires `type`, `subType`, `contactId`, `status`
     # (apps/conversations.json line 3930-3935). `subType` is documented as
     # `type: object` with no schema/enum (line 3765-3768) — sending `{}`
@@ -46,6 +48,7 @@ def ghl_send_message(
             result=f"success: msg_id={message_id}",
             payload_summary=f"Sent: {message[:200]}",
         )
+        log("skill_helper_result", name="ghl_send_message", status="success", message_id=message_id)
         return {"status": "success", "message_id": message_id}
     post_auto_note(
         client=client,
@@ -55,4 +58,5 @@ def ghl_send_message(
         approver=approver,
         result=f"error: status={resp.status_code}",
     )
+    log("skill_helper_result", name="ghl_send_message", status="error", code=resp.status_code)
     return {"status": "error", "code": resp.status_code, "body": resp.text}

@@ -11,6 +11,7 @@ if str(_HELPERS) not in sys.path:
 from helpers.tool import Tool, Response
 from skills_ghl_get import ghl_get_tasks_for_contact as _get_tasks_helper
 from ghl_client import GhlClient
+from scoopy_logging import log, log_error
 
 
 class GhlGetTasksForContact(Tool):
@@ -18,6 +19,7 @@ class GhlGetTasksForContact(Tool):
 
     async def execute(self, **kwargs) -> Response:
         args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="ghl_get_tasks_for_contact", args_keys=",".join(sorted(args.keys())))
         contact_id = args.get("contact_id") or kwargs.get("contact_id")
         assigned_to_scoopy_only = args.get("assigned_to_scoopy_only")
         if assigned_to_scoopy_only is None:
@@ -45,8 +47,10 @@ class GhlGetTasksForContact(Tool):
                 title_prefix=title_prefix,
             )
         except Exception as e:
+            log_error("tool_result", e, name="ghl_get_tasks_for_contact", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
 
+        log("tool_result", name="ghl_get_tasks_for_contact", outcome="success", count=len(tasks))
         msg = (
             f"Found {len(tasks)} open task(s) for contact {contact_id}:\n"
             + json.dumps(tasks, indent=2, default=str)

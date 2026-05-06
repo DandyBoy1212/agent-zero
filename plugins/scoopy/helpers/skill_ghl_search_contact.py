@@ -10,6 +10,7 @@ Response: {"contacts": [...]}
 from __future__ import annotations
 import os
 from typing import Any
+from scoopy_logging import log
 
 
 def ghl_search_contact(*, client, query: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -24,5 +25,8 @@ def ghl_search_contact(*, client, query: str, limit: int = 10) -> list[dict[str,
         list of contact dicts. Each contact typically contains
         {id, firstName, lastName, contactName, email, phone, customFields, tags, ...}
     """
+    log("skill_helper_call", name="ghl_search_contact", limit=limit)
     location_id = os.getenv("GHL_LOCATION_ID")
-    return client.search_contacts(query=query, location_id=location_id, limit=limit)
+    results = client.search_contacts(query=query, location_id=location_id, limit=limit)
+    log("skill_helper_result", name="ghl_search_contact", status="success", count=len(results))
+    return results

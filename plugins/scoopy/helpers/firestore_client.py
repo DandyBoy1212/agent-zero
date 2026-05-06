@@ -9,6 +9,7 @@ import os
 import json
 from typing import Any
 from datetime import datetime, timezone
+from scoopy_logging import log, log_error, timed
 
 _TASKS_COLLECTION = "scoopy_tasks"
 
@@ -73,15 +74,19 @@ class FirestoreClient:
         task = dict(task)
         task["synced_at"] = datetime.now(timezone.utc).isoformat()
         self.client.collection(_TASKS_COLLECTION).document(task_id).set(task)
+        log("firestore", op="upsert", collection=_TASKS_COLLECTION, doc_id=task_id, status="success")
 
     def delete_task(self, task_id: str) -> None:
         if not task_id:
             raise ValueError("task_id required")
         self.client.collection(_TASKS_COLLECTION).document(task_id).delete()
+        log("firestore", op="delete", collection=_TASKS_COLLECTION, doc_id=task_id, status="success")
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         doc = self.client.collection(_TASKS_COLLECTION).document(task_id).get()
-        if not getattr(doc, "exists", False):
+        exists = getattr(doc, "exists", False)
+        log("firestore", op="get", collection=_TASKS_COLLECTION, doc_id=task_id, status="success", found=bool(exists))
+        if not exists:
             return None
         return doc.to_dict()
 
@@ -94,14 +99,24 @@ class FirestoreClient:
         task_type: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        q = self.client.collection(_TASKS_COLLECTION)
-        if assigned_to is not None:
-            q = q.where("assigned_to", "==", assigned_to)
-        if completed is not None:
-            q = q.where("completed", "==", completed)
-        if task_type is not None:
-            q = q.where("task_type", "==", task_type)
-        if due_on_or_before is not None:
-            q = q.where("due_date", "<=", due_on_or_before)
-        docs = q.limit(limit).stream()
-        return [d.to_dict() for d in docs]
+        with timed("firestore", op="query", collection=_TASKS_COLLECTION) as ctx:
+            q = self.client.collection(_TASKS_COLLECTION)
+            filters = []
+            if assigned_to is not None:
+                q = q.where("assigned_to", "==", assigned_to)
+                filters.append("assigned_to")
+            if completed is not None:
+                q = q.where("completed", "==", completed)
+                filters.append("completed")
+            if task_type is not None:
+                q = q.where("task_type", "==", task_type)
+                filters.append("task_type")
+            if due_on_or_before is not None:
+                q = q.where("due_date", "<=", due_on_or_before)
+                filters.append("due_date")
+            docs = q.limit(limit).stream()
+            results = [d.to_dict() for d in docs]
+            ctx["filters"] = ",".join(filters)
+            ctx["result_count"] = len(results)
+            ctx["status"] = "success"
+        return results

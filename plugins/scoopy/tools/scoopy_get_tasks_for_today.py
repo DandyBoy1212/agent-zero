@@ -19,6 +19,7 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.tool import Tool, Response
 from skill_scoopy_tasks import scoopy_get_tasks_for_today as _today_helper
+from scoopy_logging import log, log_error
 
 
 def _render(result: dict) -> str:
@@ -66,10 +67,14 @@ class ScoopyGetTasksForToday(Tool):
     """Return Scoopy's daily worklist from the Firestore task cache."""
 
     async def execute(self, **kwargs) -> Response:
+        args = getattr(self, "args", {}) or {}
+        log("tool_invoked", name="scoopy_get_tasks_for_today", args_keys=",".join(sorted(args.keys())))
         try:
             result = _today_helper()
         except Exception as e:
+            log_error("tool_result", e, name="scoopy_get_tasks_for_today", outcome="error")
             return Response(message=f"error: {e}", break_loop=False)
+        log("tool_result", name="scoopy_get_tasks_for_today", outcome="success")
         rendered = _render(result)
         # Also append raw JSON so the agent can pluck specific fields if needed
         msg = (

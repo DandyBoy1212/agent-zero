@@ -6,6 +6,7 @@ context.
 from __future__ import annotations
 import json
 from typing import Any
+from scoopy_logging import log
 
 
 def parse_task_type(title: str | None) -> str:
@@ -89,11 +90,19 @@ def determine_event(payload: dict[str, Any]) -> dict[str, Any]:
     event_lower = str(event_str).lower()
 
     if "delet" in event_lower or "remove" in event_lower:
-        return {"is_delete": True, "force_completed": None}
-    if "complet" in event_lower:
-        return {"is_delete": False, "force_completed": True}
-    # created / updated / absent → use task fields as-is
-    return {"is_delete": False, "force_completed": None}
+        result = {"is_delete": True, "force_completed": None}
+    elif "complet" in event_lower:
+        result = {"is_delete": False, "force_completed": True}
+    else:
+        # created / updated / absent → use task fields as-is
+        result = {"is_delete": False, "force_completed": None}
+    log(
+        "task_event_determined",
+        is_delete=result["is_delete"],
+        force_completed=result["force_completed"],
+        event_type_field=str(event_str) if event_str else None,
+    )
+    return result
 
 
 def is_delete_event(payload: dict[str, Any]) -> bool:

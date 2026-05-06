@@ -10,6 +10,7 @@ Add new write skills to SKILL_REGISTRY as they are implemented.
 from __future__ import annotations
 from typing import Any
 from approval import ApprovalStore, default_store
+from scoopy_logging import log, log_error
 from skill_ghl_send_message import ghl_send_message
 from skill_ghl_add_tag import ghl_add_tag
 from skill_ghl_remove_tag import ghl_remove_tag
@@ -46,11 +47,19 @@ def execute_with_approval(
 ) -> list[dict[str, Any]]:
     s = store if store is not None else default_store
     card = s.consume(token)  # raises ApprovalError if bad/expired
+    pending = card.get("pending_actions", [])
+    log(
+        "approval_consumed",
+        token_prefix=token[:6] if isinstance(token, str) else None,
+        approver=approver,
+        action_count=len(pending),
+    )
     results: list[dict[str, Any]] = []
-    for action in card.get("pending_actions", []):
+    for action in pending:
         skill_name = action.get("skill")
         skill = SKILL_REGISTRY.get(skill_name)
         if skill is None:
+            log("skill_call_error", reason=f"unknown skill {skill_name!r}")
             results.append({"status": "error", "reason": f"unknown skill {skill_name!r}"})
             continue
         kwargs = dict(action.get("args", {}))
@@ -59,8 +68,13 @@ def execute_with_approval(
             "reasoning": card.get("reasoning", ""),
             "approver": approver,
         })
+        log("skill_call", name=skill_name, approver=approver)
         try:
-            results.append(skill(**kwargs))
+            result = skill(**kwargs)
+            results.append(result)
+            status = result.get("status") if isinstance(result, dict) else None
+            log("skill_result", name=skill_name, status=status or "success")
         except Exception as e:
+            log_error("skill_result", e, name=skill_name, status="error")
             results.append({"status": "error", "reason": f"{skill_name} raised {type(e).__name__}: {e}"})
     return results

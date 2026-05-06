@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, serialization
 from ghl_client import GhlClient
 from skills_ghl_get import ghl_get_tasks_for_contact
+from scoopy_logging import log
 
 
 # GHL global webhook public key. Source:
@@ -46,15 +47,19 @@ def verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
     signature.
     """
     if os.getenv("WEBHOOK_TEST_MODE") == "1":
+        log("webhook_verify", result="test_mode_bypass")
         return True
     if not signature_header:
+        log("webhook_verify", result="invalid", reason="no_signature")
         return False
     try:
         key = serialization.load_pem_public_key(GHL_PUBLIC_KEY_PEM)
         sig_bytes = base64.b64decode(signature_header)
         key.verify(sig_bytes, raw_body, padding.PKCS1v15(), hashes.SHA256())
+        log("webhook_verify", result="valid")
         return True
     except Exception:
+        log("webhook_verify", result="invalid")
         return False
 
 
@@ -68,17 +73,24 @@ def extract_contact_id(payload: dict[str, Any]) -> str | None:
     # Common direct fields:
     cid = payload.get("contact_id") or payload.get("contactId")
     if cid:
+        log("contact_extracted", contact_id=cid, source="flat")
         return cid
     # Nested under "contact":
     contact = payload.get("contact")
     if isinstance(contact, dict):
-        return contact.get("id")
+        nested_id = contact.get("id")
+        if nested_id:
+            log("contact_extracted", contact_id=nested_id, source="nested")
+        return nested_id
     # n8n-wrapped: body is a JSON string
     body = payload.get("body")
     if isinstance(body, str):
         try:
             inner = json.loads(body)
-            return extract_contact_id(inner)
+            inner_id = extract_contact_id(inner)
+            if inner_id:
+                log("contact_extracted", contact_id=inner_id, source="n8n_string")
+            return inner_id
         except Exception:
             pass
     elif isinstance(body, dict):

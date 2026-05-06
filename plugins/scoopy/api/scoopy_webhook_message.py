@@ -31,6 +31,7 @@ from webhook_dispatch import (  # noqa: E402
     extract_message,
 )
 from ghl_client import GhlClient  # noqa: E402
+from scoopy_logging import log, log_error  # noqa: E402
 
 
 class ScoopyWebhookMessage(ApiHandler):
@@ -65,7 +66,16 @@ class ScoopyWebhookMessage(ApiHandler):
 
         payload: dict[str, Any] = input or {}
         contact_id = extract_contact_id(payload)
+        message_preview = extract_message(payload) if payload else {}
+        log(
+            "webhook_received",
+            endpoint="scoopy_webhook_message",
+            contact_id=contact_id,
+            message_type=message_preview.get("messageType") if isinstance(message_preview, dict) else None,
+            body_len=len(message_preview.get("body") or "") if isinstance(message_preview, dict) else 0,
+        )
         if not contact_id:
+            log("webhook_decision", action="ignored", reason="missing contact_id")
             return Response(
                 '{"status": "bad_request", "reason": "missing contact_id"}',
                 status=400,
@@ -75,6 +85,12 @@ class ScoopyWebhookMessage(ApiHandler):
         client = GhlClient()
         tasks = find_matching_reply_tasks(client=client, contact_id=contact_id)
         if not tasks:
+            log(
+                "webhook_decision",
+                action="ignored",
+                reason="no [REPLY] task assigned to Scoopy",
+                contact_id=contact_id,
+            )
             return {
                 "status": "ignored",
                 "reason": "no [REPLY] task assigned to Scoopy",
@@ -105,6 +121,13 @@ class ScoopyWebhookMessage(ApiHandler):
             UserMessage(message=prompt, attachments=[], id=msg_id)
         )
 
+        log(
+            "webhook_decision",
+            action="dispatched_agent",
+            context_id=context.id,
+            tasks_matched=len(tasks),
+            contact_id=contact_id,
+        )
         return {
             "status": "accepted",
             "context_id": context.id,

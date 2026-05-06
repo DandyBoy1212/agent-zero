@@ -17,6 +17,7 @@ Approval-gated: only called by execute_with_approval after a valid token is cons
 from __future__ import annotations
 from typing import Any
 from auto_note import post_auto_note
+from scoopy_logging import log
 
 
 # Seed map: human-readable name -> GHL custom field ID.
@@ -50,6 +51,12 @@ def ghl_field_update(
     reasoning: str,
     approver: str,
 ) -> dict[str, Any]:
+    log(
+        "skill_helper_call",
+        name="ghl_field_update",
+        contact_id=contact_id,
+        field_keys=",".join(field_updates.keys()),
+    )
     custom_fields = [
         {"id": _resolve_field_id(k), "value": v}
         for k, v in field_updates.items()
@@ -67,6 +74,7 @@ def ghl_field_update(
             result=f"success: {len(custom_fields)} field(s) updated",
             payload_summary=summary,
         )
+        log("skill_helper_result", name="ghl_field_update", status="success", count=len(custom_fields))
         return {"status": "success", "updates": field_updates}
     post_auto_note(
         client=client,
@@ -77,4 +85,5 @@ def ghl_field_update(
         result=f"error: status={resp.status_code}",
         payload_summary=summary,
     )
+    log("skill_helper_result", name="ghl_field_update", status="error", code=resp.status_code)
     return {"status": "error", "code": resp.status_code, "body": resp.text}

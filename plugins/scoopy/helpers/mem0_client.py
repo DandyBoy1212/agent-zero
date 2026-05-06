@@ -10,6 +10,7 @@ business:scoop_patrol, procedures:scoop_patrol).
 from __future__ import annotations
 import os
 from typing import Any
+from scoopy_logging import log, timed
 
 try:
     from mem0 import MemoryClient
@@ -38,13 +39,14 @@ class Mem0Client:
     def search(self, *, namespace: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
         if not namespace:
             return []
-        results = self._client.search(query=query, user_id=namespace, limit=limit)
-        # Normalize: SDK may return list-of-dicts directly OR {"results": [...]}
-        if isinstance(results, dict):
-            results = results.get("results") or results.get("memories") or []
-        if not results:
-            return []
-        return list(results)[:limit]
+        with timed("mem0", op="search", namespace=namespace, query=query) as ctx:
+            results = self._client.search(query=query, user_id=namespace, limit=limit)
+            # Normalize: SDK may return list-of-dicts directly OR {"results": [...]}
+            if isinstance(results, dict):
+                results = results.get("results") or results.get("memories") or []
+            results = list(results)[:limit] if results else []
+            ctx["hits"] = len(results)
+        return results
 
     def add(
         self,
@@ -53,8 +55,11 @@ class Mem0Client:
         fact: str,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return self._client.add(
-            messages=[{"role": "user", "content": fact}],
-            user_id=namespace,
-            metadata=metadata or {},
-        )
+        with timed("mem0", op="add", namespace=namespace) as ctx:
+            result = self._client.add(
+                messages=[{"role": "user", "content": fact}],
+                user_id=namespace,
+                metadata=metadata or {},
+            )
+            ctx["status"] = "success"
+        return result

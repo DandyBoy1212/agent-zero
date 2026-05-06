@@ -14,6 +14,7 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.api import ApiHandler, Response
 from approval import default_store, ApprovalError
+from scoopy_logging import log
 
 
 class ScoopyReject(ApiHandler):
@@ -29,9 +30,13 @@ class ScoopyReject(ApiHandler):
     async def process(self, input: dict[str, Any], request) -> Response:
         token = (input or {}).get("token") or request.form.get("token") or request.args.get("token")
         if not token:
+            log("reject_clicked", token_prefix=None)
             return Response('<div class="card error">missing token</div>', status=400, mimetype="text/html")
+        log("reject_clicked", token_prefix=token[:6] if isinstance(token, str) else None)
         try:
             default_store.consume(token)
         except ApprovalError as e:
+            log("approval_rejected", token_prefix=token[:6], reason=str(e))
             return Response(f'<div class="card error">{escape(str(e))}</div>', status=400, mimetype="text/html")
+        log("reject_complete", token_prefix=token[:6])
         return Response('<div class="card rejected">Rejected.</div>', status=200, mimetype="text/html")

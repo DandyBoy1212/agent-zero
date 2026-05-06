@@ -16,6 +16,7 @@ from helpers.api import ApiHandler, Response
 from approval import ApprovalError
 from dispatcher import execute_with_approval
 from ghl_client import GhlClient
+from scoopy_logging import log, log_error
 
 
 class ScoopyApprove(ApiHandler):
@@ -31,13 +32,22 @@ class ScoopyApprove(ApiHandler):
     async def process(self, input: dict[str, Any], request) -> Response:
         token = (input or {}).get("token") or request.form.get("token") or request.args.get("token")
         if not token:
+            log("approve_clicked", token_prefix=None)
             return Response('<div class="card error">missing token</div>', status=400, mimetype="text/html")
+        log("approve_clicked", token_prefix=token[:6] if isinstance(token, str) else None)
         try:
             client = GhlClient()
             results = execute_with_approval(token=token, approver="liam", client=client)
         except ApprovalError as e:
+            log("approval_rejected", token_prefix=token[:6], reason=str(e))
             return Response(f'<div class="card error">approval error: {escape(str(e))}</div>', status=400, mimetype="text/html")
         # Summary HTML
         summary = " &middot; ".join(escape(r.get("status","?")) for r in results) or "no actions"
+        log(
+            "approve_executed",
+            token_prefix=token[:6],
+            status="success",
+            results_summary=summary.replace(" &middot; ", ","),
+        )
         html = f'<div class="card success">Approved &rarr; {summary}</div>'
         return Response(html, status=200, mimetype="text/html")

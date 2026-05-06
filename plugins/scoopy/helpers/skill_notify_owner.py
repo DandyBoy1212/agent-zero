@@ -14,6 +14,7 @@ action_type is informational for the UI:
 from __future__ import annotations
 from typing import Any
 from approval import ApprovalStore, default_store
+from scoopy_logging import log
 
 
 VALID_ACTION_TYPES = {
@@ -49,4 +50,12 @@ def notify_owner(
         "pending_actions": list(pending_actions),
     }
     token = s.issue(card=card)
+    skill_names = ",".join(a.get("skill", "") for a in pending_actions)
+    log(
+        "notify_owner_queued",
+        action_type=action_type,
+        pending_count=len(pending_actions),
+        contact_id=contact_id,
+        skill_names=skill_names,
+    )
     return {"approval_token": token, "status": "queued"}
