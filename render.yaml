@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: scoopy-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile.scoopy
+    dockerContext: .
+    plan: free
+    region: oregon
+    # Render routes external HTTPS to the port the container exposes
+    # Agent Zero binds to 0.0.0.0:80 inside the container
+    healthCheckPath: /api/health
+    envVars:
+      - key: WEB_UI_HOST
+        value: 0.0.0.0
+      - key: WEBHOOK_TEST_MODE
+        value: "1"
+      - key: SCOOPY_USER_ID
+        value: cf3N4C5qNIshuYMIFgRP
+      - key: GHL_USER_ID
+        value: ZeBJHpt4vPSaVRPbcbXy
+      # Secrets — set these manually in the Render dashboard or via render CLI
+      # to avoid committing credentials to the repo
+      - key: GHL_API_KEY
+        sync: false
+      - key: GHL_LOCATION_ID
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: DASHBOARD_PASS
+        sync: false
+      - key: AUTH_PASSWORD
+        sync: false
