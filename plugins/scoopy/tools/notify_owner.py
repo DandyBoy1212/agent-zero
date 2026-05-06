@@ -85,13 +85,29 @@ class NotifyOwner(Tool):
             else "/api/plugins/scoopy/scoopy_inbox"
         )
 
-        log("tool_result", name="notify_owner", outcome="queued")
-        msg = (
-            f"✅ Drafted — queued for your approval.\n\n"
-            f"Open the inbox to approve or edit: {inbox_url}\n\n"
-            f"approval_token: {result['approval_token']}"
-        )
-        # break_loop=True: queuing a card ends this reasoning turn. The
-        # dispatcher runs the actions only after the owner approves; the
-        # agent should not keep iterating.
+        if result.get("auto_approved") and result.get("status") == "executed":
+            statuses = " · ".join(r.get("status", "?") for r in result.get("results", []))
+            log("tool_result", name="notify_owner", outcome="auto_executed")
+            msg = (
+                f"✅ Done — actions executed automatically.\n"
+                f"results: {statuses}\n"
+                f"approval_token: {result['approval_token']}"
+            )
+        elif result.get("auto_approved") and result.get("status") == "auto_execute_failed":
+            log("tool_result", name="notify_owner", outcome="auto_execute_failed")
+            msg = (
+                f"⚠️ Auto-execute failed: {result.get('error', 'unknown error')}\n"
+                f"approval_token: {result['approval_token']}\n"
+                f"You can retry via the inbox: {inbox_url}"
+            )
+        else:
+            log("tool_result", name="notify_owner", outcome="queued")
+            msg = (
+                f"✅ Drafted — queued for your approval.\n\n"
+                f"Open the inbox to approve or edit: {inbox_url}\n\n"
+                f"approval_token: {result['approval_token']}"
+            )
+        # break_loop=True: this ends the agent's reasoning turn. In auto-approve
+        # mode the actions already ran; in queue mode the dispatcher runs them
+        # post-approval. Either way the agent shouldn't keep iterating.
         return Response(message=msg, break_loop=True)

@@ -55,7 +55,7 @@ You break that into ONE notify_owner card with a list of pending_actions. Exampl
 When the customer replies (later), the webhook fires and you'll wake with the [REPLY] task body in context. You then read the task body's conditional logic and draft the appropriate next response — again routed through notify_owner.
 
 ## Reads vs writes — what's the line
-WRITES = anything that mutates state in GHL (send_message, add_tag, remove_tag, create_task, update_task, field_update) or persists to Mem0. These ALWAYS go through notify_owner; the dispatcher runs them post-approval. Never call them yourself.
+WRITES = anything that mutates state in GHL or persists to Mem0. ALL writes flow through notify_owner with a pending_actions list; by default they auto-execute and auto-log a [Scoopy] note on the contact. (For prospect demos / approval-required mode, set SCOOPY_AUTO_APPROVE=0 — same call, queues a card instead.) Never call write skills directly.
 
 READS = fetching data. Use the listed tools first (ghl_get_contact, ghl_get_tasks_for_contact, ghl_search_contact, ghl_list_watching_contacts, mem0_search). If you need a read no listed tool covers (custom GHL filter, parsing a CSV from a note attachment, calling an unmapped endpoint), use code_execution_tool. Available env vars in code: GHL_API_KEY, GHL_LOCATION_ID, SCOOPY_USER_ID. Base URL: https://services.leadconnectorhq.com. Auth header: Authorization: Bearer $GHL_API_KEY, Version: 2021-07-28.
 

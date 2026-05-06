@@ -1,9 +1,11 @@
 import pytest
+from unittest.mock import MagicMock, patch
 from approval import ApprovalStore
 from skill_notify_owner import notify_owner
 
 
-def test_notify_owner_returns_token_and_queues_card():
+def test_notify_owner_returns_token_and_queues_card(monkeypatch):
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
     store = ApprovalStore()
     result = notify_owner(
         store=store,
@@ -17,6 +19,7 @@ def test_notify_owner_returns_token_and_queues_card():
     )
     assert "approval_token" in result
     assert result["status"] == "queued"
+    assert result["auto_approved"] is False
     pending = store.list_pending()
     assert len(pending) == 1
     _, card = pending[0]
@@ -26,7 +29,8 @@ def test_notify_owner_returns_token_and_queues_card():
     assert card["pending_actions"][0]["skill"] == "ghl_send_message"
 
 
-def test_notify_owner_uses_default_store_when_none_passed():
+def test_notify_owner_uses_default_store_when_none_passed(monkeypatch):
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
     from approval import default_store
     initial = len(default_store.list_pending())
     notify_owner(
@@ -39,7 +43,8 @@ def test_notify_owner_uses_default_store_when_none_passed():
     assert len(default_store.list_pending()) == initial + 1
 
 
-def test_action_type_drift_supported():
+def test_action_type_drift_supported(monkeypatch):
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
     store = ApprovalStore()
     result = notify_owner(
         store=store, contact_id="c1", draft="holding response",
@@ -51,9 +56,10 @@ def test_action_type_drift_supported():
     assert card["action_type"] == "drift"
 
 
-def test_action_type_memory_candidate_supported():
+def test_action_type_memory_candidate_supported(monkeypatch):
     """Memory curation cards use action_type='memory_candidate' with no draft.
     The 'draft' field carries the candidate fact."""
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
     store = ApprovalStore()
     result = notify_owner(
         store=store, contact_id="c1",
@@ -66,9 +72,10 @@ def test_action_type_memory_candidate_supported():
     assert card["action_type"] == "memory_candidate"
 
 
-def test_pending_actions_can_be_empty_for_pure_escalation():
+def test_pending_actions_can_be_empty_for_pure_escalation(monkeypatch):
     """Sometimes the agent just wants to flag something to the owner with no
     suggested action. Card has empty pending_actions; approving is a no-op."""
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
     store = ApprovalStore()
     result = notify_owner(
         store=store, contact_id="c1",
@@ -79,3 +86,38 @@ def test_pending_actions_can_be_empty_for_pure_escalation():
     )
     _, card = store.list_pending()[0]
     assert card["pending_actions"] == []
+
+
+def test_notify_owner_auto_approves_when_env_set(monkeypatch):
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "1")
+    import dispatcher
+    fake_skill = MagicMock(return_value={"status": "success"})
+    monkeypatch.setitem(dispatcher.SKILL_REGISTRY, "_test_skill", fake_skill)
+
+    store = ApprovalStore()
+    with patch("ghl_client.GhlClient") as fake_client_cls:
+        fake_client_cls.return_value = MagicMock()
+        result = notify_owner(
+            store=store,
+            contact_id="c1", draft="x", reasoning="r",
+            action_type="in_scope",
+            pending_actions=[{"skill": "_test_skill", "args": {"contact_id": "c1"}}],
+        )
+    assert result["status"] == "executed"
+    assert result["auto_approved"] is True
+    assert len(result["results"]) == 1
+    assert result["results"][0]["status"] == "success"
+    fake_skill.assert_called_once()
+
+
+def test_notify_owner_queues_when_env_zero(monkeypatch):
+    monkeypatch.setenv("SCOOPY_AUTO_APPROVE", "0")
+    store = ApprovalStore()
+    result = notify_owner(
+        store=store,
+        contact_id="c1", draft="x", reasoning="r",
+        action_type="in_scope",
+        pending_actions=[],
+    )
+    assert result["status"] == "queued"
+    assert result["auto_approved"] is False
