@@ -12,6 +12,7 @@ ansio==0.0.1
 docker==7.1.0
 duckduckgo-search==6.1.12
 pyreqwest-impersonate==0.5.3  # freeze nearest wheel-backed release; 0.5.5 is source-only (needs Rust/cmake)
+sentence-transformers==3.0.1  # required by models.py top-level import; already in base image venv so uv skips download
 fastmcp==3.2.4
 fasta2a==0.5.0
 flask[async]==3.0.3
