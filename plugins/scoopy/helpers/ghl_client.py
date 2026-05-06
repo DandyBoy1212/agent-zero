@@ -57,6 +57,57 @@ class GhlClient:
         resp.raise_for_status()
         return resp.json().get("contacts", [])
 
+    def search_contacts_by_tag(
+        self,
+        *,
+        tag: str,
+        location_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """POST /contacts/search — filter contacts by tag.
+
+        Tries the documented `filters` array shape first (per GHL "advanced
+        search" docs: field=tags, operator=contains, value=<tag>). If that
+        returns nothing, falls back to a free-form query on the tag name —
+        GHL's text search will sometimes match tag strings, which is good
+        enough for a small location. Always returns a list (possibly empty).
+        """
+        loc = location_id or self.location_id
+
+        # Primary: filters array — SearchBodyV2DTO is schema-less in the spec
+        # but the documented advanced-search shape is filters[{field,operator,value}].
+        filter_payload = {
+            "locationId": loc,
+            "pageLimit": limit,
+            "filters": [
+                {"field": "tags", "operator": "contains", "value": tag}
+            ],
+        }
+        try:
+            resp = self._client.post(
+                f"{BASE_URL}/contacts/search",
+                headers=self._headers(),
+                json=filter_payload,
+            )
+            resp.raise_for_status()
+            contacts = resp.json().get("contacts", [])
+        except Exception:
+            contacts = []
+
+        if contacts:
+            # Defence in depth: GHL "contains" can be permissive; require the
+            # tag to actually be present on each returned contact.
+            return [c for c in contacts if tag in (c.get("tags") or [])]
+
+        # Fallback: query-based search, then filter in-process by exact tag.
+        try:
+            query_contacts = self.search_contacts(
+                query=tag, location_id=loc, limit=limit
+            )
+        except Exception:
+            query_contacts = []
+        return [c for c in query_contacts if tag in (c.get("tags") or [])]
+
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         resp = self._client.get(f"{BASE_URL}/conversations/{conversation_id}/messages", headers=self._headers())
         resp.raise_for_status()
