@@ -11,7 +11,9 @@ deployment — auto-approve for trusted day-to-day, approval-required for
 prospect demos / when "showing the safety story" matters.
 """
 from __future__ import annotations
+import json
 import os
+from pathlib import Path
 from typing import Any
 from approval import ApprovalStore, default_store
 from scoopy_logging import log, log_error
@@ -21,8 +23,18 @@ VALID_ACTION_TYPES = {
     "in_scope", "drift", "escalation", "create_task", "memory_candidate",
 }
 
+_RUNTIME_FILE = Path("tmp/scoopy_runtime.json")
+
 
 def _auto_approve_enabled() -> bool:
+    # Runtime file overrides env var if present
+    try:
+        if _RUNTIME_FILE.exists():
+            data = json.loads(_RUNTIME_FILE.read_text(encoding="utf-8"))
+            if "auto_approve" in data:
+                return bool(data["auto_approve"])
+    except Exception:
+        pass
     return os.getenv("SCOOPY_AUTO_APPROVE", "1").strip() not in ("", "0", "false", "False", "no", "NO")
 
 
