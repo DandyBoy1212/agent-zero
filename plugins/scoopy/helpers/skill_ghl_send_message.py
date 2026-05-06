@@ -18,7 +18,21 @@ def ghl_send_message(
     reasoning: str,
     approver: str,
 ) -> dict[str, Any]:
-    payload = {"type": "SMS", "contactId": contact_id, "message": message}
+    # SendMessageBodyDto requires `type`, `subType`, `contactId`, `status`
+    # (apps/conversations.json line 3930-3935). `subType` is documented as
+    # `type: object` with no schema/enum (line 3765-3768) — sending `{}`
+    # is the safest default until live testing reveals a needed shape.
+    # `status` enum (line 3907-3912) is `delivered|failed|pending|read`;
+    # `pending` is the only sensible value for an outbound send.
+    # TODO: confirm `subType` shape against a live send — may need
+    # channel-specific fields (e.g. `{provider: "twilio"}`).
+    payload = {
+        "type": "SMS",
+        "subType": {},
+        "contactId": contact_id,
+        "message": message,
+        "status": "pending",
+    }
     resp = client.post("/conversations/messages", payload=payload)
     if resp.status_code in (200, 201):
         body = resp.json()

@@ -5,34 +5,66 @@ plugins/scoopy/api/scoopy_webhook_message.py imports from here.
 """
 from __future__ import annotations
 import os
-import hmac
-import hashlib
 import json
+import base64
 from typing import Any
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes, serialization
 from ghl_client import GhlClient
 from skills_ghl_get import ghl_get_tasks_for_contact
 
 
+# GHL global webhook public key. Source:
+# highlevel-api-docs/docs/oauth/WebhookAuthentication.md (lines 41-54).
+# This is the SAME key for every GHL location/integration. GHL rotates
+# rarely; watch the developer Slack channel for notice.
+GHL_PUBLIC_KEY_PEM = b"""-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAokvo/r9tVgcfZ5DysOSC
+Frm602qYV0MaAiNnX9O8KxMbiyRKWeL9JpCpVpt4XHIcBOK4u3cLSqJGOLaPuXw6
+dO0t6Q/ZVdAV5Phz+ZtzPL16iCGeK9po6D6JHBpbi989mmzMryUnQJezlYJ3DVfB
+csedpinheNnyYeFXolrJvcsjDtfAeRx5ByHQmTnSdFUzuAnC9/GepgLT9SM4nCpv
+uxmZMxrJt5Rw+VUaQ9B8JSvbMPpez4peKaJPZHBbU3OdeCVx5klVXXZQGNHOs8gF
+3kvoV5rTnXV0IknLBXlcKKAQLZcY/Q9rG6Ifi9c+5vqlvHPCUJFT5XUGG5RKgOKU
+J062fRtN+rLYZUV+BjafxQauvC8wSWeYja63VSUruvmNj8xkx2zE/Juc+yjLjTXp
+IocmaiFeAO6fUtNjDeFVkhf5LNb59vECyrHD2SQIrhgXpO4Q3dVNA5rw576PwTzN
+h/AMfHKIjE4xQA1SZuYJmNnmVZLIZBlQAF9Ntd03rfadZ+yDiOXCCs9FkHibELhC
+HULgCsnuDJHcrGNd5/Ddm5hxGQ0ASitgHeMZ0kcIOwKDOzOU53lDza6/Y09T7sYJ
+PQe7z0cvj7aE4B+Ax1ZoZGPzpJlZtGXCsu9aTEGEnKzmsFqwcSsnw3JB31IGKAyk
+T1hhTiaCeIY/OwwwNUY2yvcCAwEAAQ==
+-----END PUBLIC KEY-----"""
+
+
 def verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
-    """Verify GHL webhook signature.
+    """Verify a GHL webhook signature.
 
-    Test-mode bypass: WEBHOOK_TEST_MODE=1 always returns True.
+    GHL signs the raw request body with RSA-SHA256 using a global private
+    key; we verify with the public key shipped above. Header name is
+    ``x-wh-signature`` and the value is base64-encoded.
 
-    Real verification: HMAC-SHA256 of raw body using GHL_WEBHOOK_SECRET.
-    NOTE: GHL's actual signature header name + algorithm should be
-    confirmed against GHL docs in production. This is a defensible default.
+    Test-mode bypass: when ``WEBHOOK_TEST_MODE=1`` the function always
+    returns True so local/dev runs and the test suite don't need a real
+    signature.
     """
     if os.getenv("WEBHOOK_TEST_MODE") == "1":
         return True
-    secret = os.getenv("GHL_WEBHOOK_SECRET", "")
-    if not secret or not signature_header:
+    if not signature_header:
         return False
-    expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature_header)
+    try:
+        key = serialization.load_pem_public_key(GHL_PUBLIC_KEY_PEM)
+        sig_bytes = base64.b64decode(signature_header)
+        key.verify(sig_bytes, raw_body, padding.PKCS1v15(), hashes.SHA256())
+        return True
+    except Exception:
+        return False
 
 
 def extract_contact_id(payload: dict[str, Any]) -> str | None:
-    """GHL webhooks come in a few shapes. Handle the common ones."""
+    """GHL inbound webhooks deliver a FLAT payload — `contactId` lives at
+    the top level (camelCase), per
+    highlevel-api-docs/docs/webhook events/InboundMessage.md (lines 22-76).
+    We still tolerate the legacy snake_case name and the n8n-wrapped
+    `body` shape so retro fixtures keep working.
+    """
     # Common direct fields:
     cid = payload.get("contact_id") or payload.get("contactId")
     if cid:

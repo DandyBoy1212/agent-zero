@@ -17,6 +17,12 @@ SKILL_REGISTRY: dict[str, Any] = {
     "ghl_send_message": ghl_send_message,
     # Add: ghl_remove_tag, ghl_create_task, ghl_update_task, ghl_field_update,
     # ghl_add_note, mem0_persist as those skills are implemented.
+    #
+    # NOTE for future ghl_update_task implementer: the GHL tasks update
+    # endpoint is `PUT /contacts/{contactId}/tasks/{taskId}` — contact-scoped
+    # only. There is NO top-level `/tasks/{taskId}` endpoint. Every task op
+    # (list, create, update, complete, delete) lives under the contact path.
+    # Cite: highlevel-api-docs/apps/contacts.json lines 392-492.
 }
 
 
