@@ -6,6 +6,7 @@ in the inbox UI; the dispatcher (execute_with_approval) then runs the
 queued actions.
 """
 from __future__ import annotations
+import os
 import sys
 import pathlib
 import json
@@ -75,13 +76,17 @@ class NotifyOwner(Tool):
         except ValueError as e:
             return Response(message=f"error: {e}", break_loop=False)
 
+        inbox_base = os.getenv("SCOOPY_AGENT_URL") or os.getenv("RENDER_EXTERNAL_URL") or ""
+        inbox_url = (
+            f"{inbox_base.rstrip('/')}/api/plugins/scoopy/scoopy_inbox"
+            if inbox_base
+            else "/api/plugins/scoopy/scoopy_inbox"
+        )
+
         msg = (
-            "Card queued for owner approval.\n"
-            f"approval_token: {result['approval_token']}\n"
-            f"status: {result['status']}\n"
-            "Wait for the owner to approve via the inbox. Do not call any "
-            "write skill yourself — execute_with_approval is invoked by the "
-            "approval endpoint."
+            f"✅ Drafted — queued for your approval.\n\n"
+            f"Open the inbox to approve or edit: {inbox_url}\n\n"
+            f"approval_token: {result['approval_token']}"
         )
         # break_loop=True: queuing a card ends this reasoning turn. The
         # dispatcher runs the actions only after the owner approves; the
