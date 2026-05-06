@@ -48,6 +48,10 @@ RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
 # Post-install steps
 RUN bash /ins/post_install.sh $BRANCH
 
+# Pre-copy fork files to /a0 at BUILD TIME so startup is instant
+# (no cp at runtime = Flask starts in <1 second, well within Render's health check window)
+RUN cp -rn --no-preserve=ownership,mode /git/agent-zero/. /a0
+
 EXPOSE 10000
 
 RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh /exe/start_render.sh
