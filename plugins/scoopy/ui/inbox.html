@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scoopy Inbox</title>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 760px; margin: 1rem auto; padding: 1rem; color: #222; }
+  h1 { margin-bottom: 0.25rem; }
+  .sub { color: #666; margin-bottom: 1.25rem; }
+  .card { border: 1px solid #d4d4d4; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; background: #fafafa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+  .badge-in_scope { background: #d6f4d4; color: #1a4d1a; }
+  .badge-drift { background: #fff3cd; color: #856404; }
+  .badge-escalation { background: #f8d7da; color: #721c24; }
+  .badge-create_task { background: #d1ecf1; color: #0c5460; }
+  .badge-memory_candidate { background: #e6e0f4; color: #4a3c8a; }
+  h3 { margin: 0.25rem 0; font-family: ui-monospace, "SF Mono", monospace; font-size: 0.95rem; }
+  .reasoning { color: #555; font-style: italic; margin: 0.25rem 0; }
+  .draft { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.6rem; white-space: pre-wrap; font-size: 0.95rem; margin: 0.5rem 0; }
+  .actions { font-size: 0.85rem; color: #666; margin: 0.25rem 0; padding-left: 1.25rem; }
+  .buttons { margin-top: 0.5rem; }
+  button { padding: 0.5rem 1rem; border: 1px solid #888; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.95rem; }
+  button:first-child { background: #2d7a2d; color: #fff; border-color: #2d7a2d; }
+  button:last-child { background: #fff; color: #888; }
+  .empty { color: #888; padding: 2rem; text-align: center; border: 1px dashed #ccc; border-radius: 8px; }
+</style>
+</head>
+<body>
+<h1>Scoopy &mdash; Pending Approvals</h1>
+<p class="sub">Approve or reject each card. Approving runs the queued actions and logs a [Scoopy] note on the contact.</p>
+<div id="cards" hx-get="/api/plugins/scoopy/scoopy_inbox?fragment=1" hx-trigger="load, every 5s" hx-swap="innerHTML">
+{{CARDS}}
+</div>
+</body>
+</html>
