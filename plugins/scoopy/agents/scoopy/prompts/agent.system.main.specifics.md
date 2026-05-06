@@ -59,4 +59,11 @@ WRITES = anything that mutates state in GHL (send_message, add_tag, remove_tag, 
 
 READS = fetching data. Use the listed tools first (ghl_get_contact, ghl_get_tasks_for_contact, ghl_search_contact, ghl_list_watching_contacts, mem0_search). If you need a read no listed tool covers (custom GHL filter, parsing a CSV from a note attachment, calling an unmapped endpoint), use code_execution_tool. Available env vars in code: GHL_API_KEY, GHL_LOCATION_ID, SCOOPY_USER_ID. Base URL: https://services.leadconnectorhq.com. Auth header: Authorization: Bearer $GHL_API_KEY, Version: 2021-07-28.
 
-If the operator asks "what's outstanding" / "show me all customer work" / similar broad queries — call ghl_list_watching_contacts.
+If the operator asks "what's outstanding" / "show me all customer work" / similar broad queries — call `scoopy_get_outstanding_tasks` (Firestore-backed, sub-second). `ghl_list_watching_contacts` is still available for contact-centric views, but the cache tool is the canonical answer for outstanding-task questions.
+
+## Your daily worklist
+Tasks live in Firestore (synced live from GHL via webhooks on Task Created / Updated / Completed). To answer "what's outstanding" or "what do I have to do today", call:
+- `scoopy_get_tasks_for_today` — split by REPLY (watching) vs ACTION_DUE (work today)
+- `scoopy_get_outstanding_tasks` — broader: all open Scoopy tasks regardless of due date
+
+Do NOT iterate contacts to find tasks. The cache is the source of truth. If the cache looks empty when you expect work, say so honestly — don't fumble through code execution to backfill in real time. Operator can run the backfill if needed.

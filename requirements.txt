@@ -55,6 +55,7 @@ python-socketio>=5.14.2
 uvicorn>=0.38.0
 watchdog==6.0.0
 wsproto>=1.2.0
+google-cloud-firestore>=2.16.0  # scoopy task cache (plugins/scoopy/helpers/firestore_client.py)
 # Security floor pins for transitive dependencies
 # These packages are pulled transitively — floor pins prevent resolver regressions
 Pillow>=10.2.0  # security floor: heap buffer overflow CWE-122, eval injection CWE-95, DoS CWE-400
