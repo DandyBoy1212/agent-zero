@@ -2,7 +2,13 @@
 #
 # Uses the pre-built Agent Zero base image which already contains all heavy ML deps
 # (torch, transformers, sentence-transformers, whisper, kokoro, faiss, etc.)
-# so the build only needs to install the lightweight Python-level packages.
+#
+# Key insight: install_A0.sh runs `python preload.py --dockerized=true` at the end
+# of the build step. preload.py tries to import every ML package at once, which
+# fails if any package is not in the active build-time venv.
+#
+# Solution: patch install_A0.sh to skip the preload.py step during the Docker build.
+# The app will preload models on first startup instead — identical runtime behaviour.
 #
 # BRANCH=local tells install_A0.sh to use the files we COPY in (our fork),
 # rather than cloning from the upstream agent0ai/agent-zero repo.
@@ -19,19 +25,20 @@ COPY ./docker/run/fs/ /
 # the location the startup scripts expect
 COPY ./ /git/agent-zero
 
-# Swap in the slim requirements file so install_A0.sh skips the heavy ML deps
-# that are already baked into the base image — cuts build time from ~15min to ~2min
-RUN cp /git/agent-zero/requirements-slim.txt /git/agent-zero/requirements.txt
+# Patch install_A0.sh to skip the preload.py step during Docker build.
+# preload.py warms up model caches — useful at runtime but breaks the build
+# because it imports every ML package into the build-time venv.
+# The app preloads on first startup instead (identical behaviour).
+RUN sed -i 's|python /git/agent-zero/preload.py --dockerized=true|echo "Skipping preload.py at build time — will run on first startup"|g' /ins/install_A0.sh
 
 # Pre-install steps (apt update, SSH setup)
 RUN bash /ins/pre_install.sh $BRANCH
 
-# Install Agent Zero Python packages (reads /git/agent-zero/requirements.txt)
-# Heavy ML deps are already in the base image — this only installs the delta
+# Install Agent Zero Python packages and playwright
+# Heavy ML deps are already in the base image — uv resolves them quickly
 RUN bash /ins/install_A0.sh $BRANCH
 
 # Install additional system software (LibreOffice, xpra, etc.)
-# This step can be slow; it's cached after the first build
 RUN bash /ins/install_additional.sh $BRANCH
 
 # Second install pass (cleans up and re-installs A0 without pip cache)
@@ -42,11 +49,9 @@ RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
 RUN bash /ins/post_install.sh $BRANCH
 
 # Agent Zero web UI runs on port 80 inside the container
-# Render/Fly.io route external HTTPS → container port 80
 EXPOSE 80
 
 RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh
 
 # initialize.sh copies /per/* to /, then hands off to supervisord
-# supervisord starts run_A0.sh which runs: copy_A0.sh → self_update_manager.py → run_ui.py
 CMD ["/exe/initialize.sh", "local"]
