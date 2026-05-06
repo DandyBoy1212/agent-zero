@@ -48,10 +48,9 @@ RUN echo "cache buster $CACHE_DATE" && bash /ins/install_A02.sh $BRANCH
 # Post-install steps
 RUN bash /ins/post_install.sh $BRANCH
 
-# Render routes to port 10000 (patched above in self_update_manager.py)
 EXPOSE 10000
 
-RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh
+RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh /exe/start_render.sh
 
-# initialize.sh copies /per/* to /, then hands off to supervisord
-CMD ["/exe/initialize.sh", "local"]
+# Render-specific startup: bypass supervisord, run run_ui.py directly on port 10000
+CMD ["/exe/start_render.sh"]
