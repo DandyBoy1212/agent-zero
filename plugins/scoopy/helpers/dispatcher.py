@@ -16,6 +16,7 @@ from skill_ghl_remove_tag import ghl_remove_tag
 from skill_ghl_create_task import ghl_create_task
 from skill_ghl_field_update import ghl_field_update
 from skill_ghl_update_task import ghl_update_task
+from skill_mem0_persist import mem0_persist
 
 
 SKILL_REGISTRY: dict[str, Any] = {
@@ -25,7 +26,8 @@ SKILL_REGISTRY: dict[str, Any] = {
     "ghl_create_task": ghl_create_task,
     "ghl_field_update": ghl_field_update,
     "ghl_update_task": ghl_update_task,
-    # Add: ghl_add_note, mem0_persist as those skills are implemented.
+    "mem0_persist": mem0_persist,
+    # Add: ghl_add_note as those skills are implemented.
     #
     # NOTE: the GHL tasks update endpoint is
     # `PUT /contacts/{contactId}/tasks/{taskId}` — contact-scoped only.

@@ -83,6 +83,7 @@ def test_all_write_skills_in_default_registry():
         "ghl_create_task",
         "ghl_field_update",
         "ghl_update_task",
+        "mem0_persist",
     }
     for name in expected:
         assert name in dispatcher.SKILL_REGISTRY, f"{name} missing from registry"
