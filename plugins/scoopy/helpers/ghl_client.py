@@ -50,3 +50,6 @@ class GhlClient:
 
     def patch(self, path: str, payload: dict[str, Any]) -> httpx.Response:
         return self._client.patch(f"{BASE_URL}{path}", headers=self._headers(), json=payload)
+
+    def put(self, path: str, payload: dict[str, Any]) -> httpx.Response:
+        return self._client.put(f"{BASE_URL}{path}", headers=self._headers(), json=payload)

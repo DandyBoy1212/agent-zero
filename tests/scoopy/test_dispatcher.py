@@ -72,3 +72,18 @@ def test_ghl_send_message_is_in_default_registry():
     # Smoke check: ghl_send_message is wired into the default SKILL_REGISTRY
     assert "ghl_send_message" in dispatcher.SKILL_REGISTRY
     assert callable(dispatcher.SKILL_REGISTRY["ghl_send_message"])
+
+
+def test_all_write_skills_in_default_registry():
+    # All six write skills must be wired into the default SKILL_REGISTRY.
+    expected = {
+        "ghl_send_message",
+        "ghl_add_tag",
+        "ghl_remove_tag",
+        "ghl_create_task",
+        "ghl_field_update",
+        "ghl_update_task",
+    }
+    for name in expected:
+        assert name in dispatcher.SKILL_REGISTRY, f"{name} missing from registry"
+        assert callable(dispatcher.SKILL_REGISTRY[name]), f"{name} not callable"

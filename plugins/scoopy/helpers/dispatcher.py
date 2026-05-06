@@ -11,16 +11,25 @@ from __future__ import annotations
 from typing import Any
 from approval import ApprovalStore, default_store
 from skill_ghl_send_message import ghl_send_message
+from skill_ghl_add_tag import ghl_add_tag
+from skill_ghl_remove_tag import ghl_remove_tag
+from skill_ghl_create_task import ghl_create_task
+from skill_ghl_field_update import ghl_field_update
+from skill_ghl_update_task import ghl_update_task
 
 
 SKILL_REGISTRY: dict[str, Any] = {
     "ghl_send_message": ghl_send_message,
-    # Add: ghl_remove_tag, ghl_create_task, ghl_update_task, ghl_field_update,
-    # ghl_add_note, mem0_persist as those skills are implemented.
+    "ghl_add_tag": ghl_add_tag,
+    "ghl_remove_tag": ghl_remove_tag,
+    "ghl_create_task": ghl_create_task,
+    "ghl_field_update": ghl_field_update,
+    "ghl_update_task": ghl_update_task,
+    # Add: ghl_add_note, mem0_persist as those skills are implemented.
     #
-    # NOTE for future ghl_update_task implementer: the GHL tasks update
-    # endpoint is `PUT /contacts/{contactId}/tasks/{taskId}` — contact-scoped
-    # only. There is NO top-level `/tasks/{taskId}` endpoint. Every task op
+    # NOTE: the GHL tasks update endpoint is
+    # `PUT /contacts/{contactId}/tasks/{taskId}` — contact-scoped only.
+    # There is NO top-level `/tasks/{taskId}` endpoint. Every task op
     # (list, create, update, complete, delete) lives under the contact path.
     # Cite: highlevel-api-docs/apps/contacts.json lines 392-492.
 }
