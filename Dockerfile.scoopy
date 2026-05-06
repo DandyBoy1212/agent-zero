@@ -19,6 +19,10 @@ COPY ./docker/run/fs/ /
 # the location the startup scripts expect
 COPY ./ /git/agent-zero
 
+# Swap in the slim requirements file so install_A0.sh skips the heavy ML deps
+# that are already baked into the base image — cuts build time from ~15min to ~2min
+RUN cp /git/agent-zero/requirements-slim.txt /git/agent-zero/requirements.txt
+
 # Pre-install steps (apt update, SSH setup)
 RUN bash /ins/pre_install.sh $BRANCH
 
