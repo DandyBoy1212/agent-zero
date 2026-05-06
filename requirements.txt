@@ -28,6 +28,7 @@ pypdf==6.0.0
 python-dotenv==1.1.0
 pytz==2024.2
 sentence-transformers==3.0.1
+scikit-learn>=1.4,<2.0  # Python 3.12 wheel availability; older versions need distutils (removed in 3.12)
 tiktoken==0.8.0
 unstructured[all-docs]==0.16.23
 unstructured-client==0.31.0
