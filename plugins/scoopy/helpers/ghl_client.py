@@ -37,6 +37,26 @@ class GhlClient:
         resp.raise_for_status()
         return resp.json().get("tasks", [])
 
+    def search_contacts(
+        self, *, query: str, location_id: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """POST /contacts/search — fuzzy match on name/phone/email.
+
+        Body shape per GHL API (verified via working execution scripts):
+            {"locationId": "...", "query": "...", "pageLimit": N}
+        Returns the `contacts` array from the response (or [] if missing).
+        """
+        payload = {
+            "locationId": location_id or self.location_id,
+            "query": query,
+            "pageLimit": limit,
+        }
+        resp = self._client.post(
+            f"{BASE_URL}/contacts/search", headers=self._headers(), json=payload
+        )
+        resp.raise_for_status()
+        return resp.json().get("contacts", [])
+
     def get_conversation(self, conversation_id: str) -> dict[str, Any]:
         resp = self._client.get(f"{BASE_URL}/conversations/{conversation_id}/messages", headers=self._headers())
         resp.raise_for_status()

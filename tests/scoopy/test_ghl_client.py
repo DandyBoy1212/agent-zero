@@ -28,3 +28,21 @@ def test_get_tasks_for_contact_returns_tasks_list(mock_get):
     tasks = client.get_tasks_for_contact("c1")
     assert "/contacts/c1/tasks" in mock_get.call_args[0][0]
     assert len(tasks) == 1
+
+
+@patch("ghl_client.httpx.Client.post")
+def test_search_contacts_posts_correct_body(mock_post):
+    mock_post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"contacts": [{"id": "c1", "contactName": "Mrs Jenkins"}]},
+    )
+    mock_post.return_value.raise_for_status = lambda: None
+    client = GhlClient(api_key="k", location_id="loc-1")
+    contacts = client.search_contacts(query="Jenkins", location_id="loc-1", limit=10)
+    assert mock_post.called
+    url = mock_post.call_args[0][0]
+    assert "/contacts/search" in url
+    body = mock_post.call_args[1]["json"]
+    assert body == {"locationId": "loc-1", "query": "Jenkins", "pageLimit": 10}
+    assert len(contacts) == 1
+    assert contacts[0]["id"] == "c1"
