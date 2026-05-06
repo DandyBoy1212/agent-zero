@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from webhook_dispatch import (
     verify_signature, extract_contact_id, find_matching_reply_tasks,
-    build_synthetic_prompt,
+    build_synthetic_prompt, extract_message,
 )
 
 
@@ -97,3 +97,42 @@ def test_build_synthetic_prompt_includes_essentials():
     assert "How can I pay?" in prompt
     assert "[REPLY] follow up payment" in prompt
     assert "notify_owner" in prompt
+
+
+def test_extract_message_flat_payload():
+    payload = {
+        "contactId": "c1",
+        "body": "Hello scoopy",
+        "messageType": "SMS",
+        "direction": "inbound",
+        "conversationId": "conv1",
+    }
+    msg = extract_message(payload)
+    assert msg["body"] == "Hello scoopy"
+    assert msg["messageType"] == "SMS"
+    assert msg["direction"] == "inbound"
+    assert msg["conversationId"] == "conv1"
+
+
+def test_extract_message_nested_payload():
+    payload = {
+        "contactId": "c1",
+        "message": {"body": "hi", "type": "SMS", "direction": "inbound"},
+    }
+    msg = extract_message(payload)
+    assert msg["body"] == "hi"
+    assert msg["messageType"] == "SMS"
+
+
+def test_extract_message_n8n_string_body():
+    import json
+    inner = {"contactId": "c1", "body": "hello", "messageType": "Email"}
+    payload = {"body": json.dumps(inner)}
+    msg = extract_message(payload)
+    assert msg["body"] == "hello"
+    assert msg["messageType"] == "Email"
+
+
+def test_extract_message_missing_returns_empty_dict():
+    msg = extract_message({"contactId": "c1"})
+    assert msg["body"] is None

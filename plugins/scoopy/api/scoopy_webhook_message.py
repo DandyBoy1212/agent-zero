@@ -28,6 +28,7 @@ from webhook_dispatch import (  # noqa: E402
     extract_contact_id,
     find_matching_reply_tasks,
     build_synthetic_prompt,
+    extract_message,
 )
 from ghl_client import GhlClient  # noqa: E402
 
@@ -85,7 +86,7 @@ class ScoopyWebhookMessage(ApiHandler):
         except Exception:
             contact = None
 
-        message = payload.get("message") or {}
+        message = extract_message(payload)
         prompt = build_synthetic_prompt(
             contact_id=contact_id,
             tasks=tasks,

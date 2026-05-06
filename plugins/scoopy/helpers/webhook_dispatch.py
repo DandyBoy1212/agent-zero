@@ -86,6 +86,41 @@ def extract_contact_id(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def extract_message(payload: dict[str, Any]) -> dict[str, Any]:
+    """Extract message fields from either flat-KV (GHL workflow webhook)
+    or nested-object (subscription webhook) payload shapes.
+
+    Handles n8n-wrapped string body too.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    # n8n-wrapped: body is a JSON string
+    body_field = payload.get("body")
+    if isinstance(body_field, str):
+        try:
+            inner = json.loads(body_field)
+            if isinstance(inner, dict):
+                return extract_message(inner)
+        except Exception:
+            pass
+    # Nested under "message" (subscription webhook shape)
+    nested = payload.get("message")
+    if isinstance(nested, dict):
+        return {
+            "body": nested.get("body") or nested.get("message"),
+            "messageType": nested.get("messageType") or nested.get("type"),
+            "direction": nested.get("direction"),
+            "conversationId": nested.get("conversationId"),
+        }
+    # Flat at top level (GHL workflow custom data shape)
+    return {
+        "body": payload.get("body") or payload.get("message"),
+        "messageType": payload.get("messageType") or payload.get("type"),
+        "direction": payload.get("direction"),
+        "conversationId": payload.get("conversationId"),
+    }
+
+
 def find_matching_reply_tasks(
     *,
     client: GhlClient,
