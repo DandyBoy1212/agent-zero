@@ -1,7 +1,7 @@
 import os
 from unittest.mock import patch, MagicMock
 import pytest
-from extensions.scoopy.ghl_client import GhlClient
+from ghl_client import GhlClient
 
 
 def test_ghl_client_uses_scoopy_api_key():
@@ -11,7 +11,7 @@ def test_ghl_client_uses_scoopy_api_key():
     assert headers["Version"] == "2021-07-28"
 
 
-@patch("extensions.scoopy.ghl_client.httpx.Client.get")
+@patch("ghl_client.httpx.Client.get")
 def test_get_contact_calls_correct_url(mock_get):
     mock_get.return_value = MagicMock(status_code=200, json=lambda: {"contact": {"id": "c1"}})
     client = GhlClient(api_key="k", location_id="l")
@@ -21,7 +21,7 @@ def test_get_contact_calls_correct_url(mock_get):
     assert result["contact"]["id"] == "c1"
 
 
-@patch("extensions.scoopy.ghl_client.httpx.Client.get")
+@patch("ghl_client.httpx.Client.get")
 def test_get_tasks_for_contact_returns_tasks_list(mock_get):
     mock_get.return_value = MagicMock(status_code=200, json=lambda: {"tasks": [{"id": "t1"}]})
     client = GhlClient(api_key="k", location_id="l")

@@ -1,0 +1,7 @@
+name: scoopy
+title: Scoopy — Scoop Patrol Ops Agent
+description: Phase 2 supervised agent for Scoop Patrol. Handles GHL webhooks, drafts replies, queues actions for owner approval.
+version: 0.1.0
+always_enabled: false
+per_project_config: false
+per_agent_config: false

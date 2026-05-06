@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from extensions.scoopy.auto_note import format_note, post_auto_note
+from auto_note import format_note, post_auto_note
 
 
 def test_format_note_includes_required_fields():
