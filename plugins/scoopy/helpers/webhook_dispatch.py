@@ -55,8 +55,11 @@ def verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
     """Verify a GHL webhook signature.
 
     GHL signs the raw request body with RSA-SHA256 using a global private
-    key; we verify with the public key shipped above. Header name is
-    ``x-wh-signature`` and the value is base64-encoded.
+    key; we verify with the public key shipped above. The signature value
+    is base64-encoded and arrives in either the ``x-wh-signature`` header
+    (GHL's documented name) or ``x-ghl-signature`` (what the original
+    implementation read) — both are accepted since which one GHL actually
+    sends in production is unverified.
 
     Test-mode bypass: when ``WEBHOOK_TEST_MODE=1`` the function always
     returns True so local/dev runs and the test suite don't need a real

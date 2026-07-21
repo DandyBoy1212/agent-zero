@@ -167,13 +167,47 @@ def test_extract_message_missing_returns_empty_dict():
     assert msg["body"] is None
 
 
-def test_task_endpoint_accepts_both_signature_header_spellings():
-    """scoopy_webhook_task.py must resolve signatures the same way
-    scoopy_webhook_message.py does — via the shared extract_signature
-    helper — not a hardcoded single header name. Regression test for the
-    two endpoints disagreeing on x-wh-signature vs x-ghl-signature."""
+def test_task_endpoint_process_extracts_signature_from_either_header(monkeypatch):
+    """scoopy_webhook_task.py's process() must resolve the inbound signature
+    the same way scoopy_webhook_message.py does — via the shared
+    extract_signature helper reading BOTH header spellings — not a
+    hardcoded single header name. Regression test for the two endpoints
+    disagreeing on x-wh-signature vs x-ghl-signature.
+
+    Drives process() end-to-end (via asyncio.run, same pattern as
+    tests/scoopy/test_api_auth.py) rather than just checking the module
+    imported the helper, so a hardcoded header lookup inside process()
+    actually fails this test.
+    """
+    import asyncio
+    import threading
+    from flask import Flask
     import scoopy_webhook_task as task_endpoint
 
-    assert task_endpoint.extract_signature is extract_signature
-    assert task_endpoint.extract_signature({"x-wh-signature": "abc"}) == "abc"
-    assert task_endpoint.extract_signature({"x-ghl-signature": "abc"}) == "abc"
+    class _Req:
+        """Minimal stand-in for a Flask request; process() only reads
+        get_data() and headers before the signature check short-circuits."""
+
+        def __init__(self, headers=None):
+            self.headers = headers or {}
+
+        def get_data(self):
+            return b"{}"
+
+    captured = {}
+
+    def fake_verify_signature(raw_body, signature_header):
+        captured["sig"] = signature_header
+        return False  # short-circuit before any Firestore/GHL work happens
+
+    monkeypatch.setattr(task_endpoint, "verify_signature", fake_verify_signature)
+    handler = task_endpoint.ScoopyWebhookTask(Flask(__name__), threading.Lock())
+
+    asyncio.run(handler.process({}, _Req({"x-ghl-signature": "sig-a"})))
+    assert captured["sig"] == "sig-a"
+
+    asyncio.run(handler.process({}, _Req({"x-wh-signature": "sig-b"})))
+    assert captured["sig"] == "sig-b"
+
+    asyncio.run(handler.process({}, _Req({})))
+    assert captured["sig"] is None
