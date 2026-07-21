@@ -19,6 +19,13 @@ langchain-core==0.3.49
 langchain-community==0.3.19
 langchain-unstructured==0.1.6
 openai-whisper==20250625
+numba>=0.59  # openai-whisper pulls numba; pip backtracks to 0.58.1, whose sdist
+             # hard-fails with "Cannot install on Python version 3.12.7; only
+             # versions >=3.8,<3.12 are supported". Same class of problem as the
+             # scikit-learn pin below. Verified working locally at numba 0.66.0
+             # with llvmlite 0.48.0. This floor stops the backtrack; if a real
+             # conflict exists elsewhere, pip will now say so instead of
+             # silently walking backwards into an unbuildable version.
 lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
 markdown==3.7
 mcp==1.27.0
