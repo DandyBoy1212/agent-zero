@@ -106,3 +106,59 @@ def test_approver_defaults_to_unknown_not_to_a_name(monkeypatch, key):
     _run(_build(ScoopyApprove), req)
 
     assert captured["approver"] == "unknown"
+
+
+def test_no_relay_key_ignores_submitted_approver(monkeypatch, key):
+    """The finding this closes: an unauthenticated caller must not be able
+    to pin their action on someone else by simply submitting that person's
+    name. Without proof the caller is the command-centre relay (which
+    authenticates staff by login), the submitted `approver` must be
+    discarded entirely -- not sanitized, not logged separately, just never
+    forwarded -- and "unknown" recorded instead.
+
+    This test must fail if the relay-key check is ever removed from
+    scoopy_approve.process.
+    """
+    import scoopy_approve
+    from scoopy_approve import ScoopyApprove
+
+    captured = {}
+
+    def _fake_execute(*, token, approver, client):
+        captured["approver"] = approver
+        return [{"status": "ok"}]
+
+    monkeypatch.setattr(scoopy_approve, "execute_with_approval", _fake_execute)
+    monkeypatch.setattr(scoopy_approve, "GhlClient", lambda: object())
+
+    req = _Req()  # no X-API-KEY header at all
+    req.form = {"token": "tok123", "approver": "mick.bain@scoop-patrol.co.uk"}
+    result = _run(_build(ScoopyApprove), req)
+
+    assert captured["approver"] == "unknown"
+    assert "mick.bain@scoop-patrol.co.uk" not in captured.values()
+    assert _status(result) == 200
+
+
+def test_no_relay_key_and_no_approver_still_approves(monkeypatch, key):
+    """A failed/missing relay-key check must only affect attribution, never
+    whether the approval executes -- the token is still the thing being
+    checked; this must never become a 401."""
+    import scoopy_approve
+    from scoopy_approve import ScoopyApprove
+
+    captured = {}
+
+    def _fake_execute(*, token, approver, client):
+        captured["approver"] = approver
+        return [{"status": "ok"}]
+
+    monkeypatch.setattr(scoopy_approve, "execute_with_approval", _fake_execute)
+    monkeypatch.setattr(scoopy_approve, "GhlClient", lambda: object())
+
+    req = _Req()  # no X-API-KEY header, no approver submitted
+    req.form = {"token": "tok123"}
+    result = _run(_build(ScoopyApprove), req)
+
+    assert captured["approver"] == "unknown"
+    assert _status(result) == 200
