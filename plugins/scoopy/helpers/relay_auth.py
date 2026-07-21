@@ -37,6 +37,9 @@ def check_relay_key(provided: str | None) -> None:
         raise RelayAuthError(f"{ENV_VAR} not configured")
     if not provided:
         raise RelayAuthError("missing key")
-    if not hmac.compare_digest(provided, expected):
+    # Compare UTF-8 encoded bytes rather than str: hmac.compare_digest raises
+    # TypeError for non-ASCII str operands, which would otherwise escape as
+    # an unhandled 500 instead of the RelayAuthError callers expect.
+    if not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
         raise RelayAuthError("invalid key")
     return None
