@@ -25,6 +25,7 @@ if str(_HELPERS) not in sys.path:
 
 from webhook_dispatch import (  # noqa: E402
     verify_signature,
+    extract_signature,
     extract_contact_id,
     find_matching_reply_tasks,
     build_synthetic_prompt,
@@ -53,10 +54,7 @@ class ScoopyWebhookMessage(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         raw = request.get_data() or b""
-        sig = (
-            request.headers.get("x-ghl-signature")
-            or request.headers.get("X-GHL-Signature")
-        )
+        sig = extract_signature(request.headers)
         if not verify_signature(raw, sig):
             return Response(
                 '{"status": "unauthorized"}',

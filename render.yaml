@@ -12,8 +12,6 @@ services:
     envVars:
       - key: WEB_UI_HOST
         value: 0.0.0.0
-      - key: WEBHOOK_TEST_MODE
-        value: "1"
       - key: SCOOPY_USER_ID
         value: cf3N4C5qNIshuYMIFgRP
       - key: GHL_USER_ID
@@ -29,4 +27,8 @@ services:
       - key: DASHBOARD_PASS
         sync: false
       - key: AUTH_PASSWORD
+        sync: false
+      - key: SCOOPY_RELAY_KEY
+        sync: false
+      - key: MEM0_API_KEY
         sync: false

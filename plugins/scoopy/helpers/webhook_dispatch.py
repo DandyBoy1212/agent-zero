@@ -35,6 +35,22 @@ T1hhTiaCeIY/OwwwNUY2yvcCAwEAAQ==
 -----END PUBLIC KEY-----"""
 
 
+# GHL's docs name this header x-wh-signature; the original implementation
+# read x-ghl-signature. Which one arrives in production is unverified, so
+# accept either rather than swapping one guess for another.
+_SIGNATURE_HEADERS = ("x-wh-signature", "x-ghl-signature")
+
+
+def extract_signature(headers) -> str | None:
+    """Return the webhook signature from either header name, or None."""
+    lowered = {str(k).lower(): v for k, v in dict(headers).items()}
+    for name in _SIGNATURE_HEADERS:
+        value = lowered.get(name)
+        if value:
+            return value
+    return None
+
+
 def verify_signature(raw_body: bytes, signature_header: str | None) -> bool:
     """Verify a GHL webhook signature.
 

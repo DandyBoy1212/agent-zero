@@ -5,6 +5,35 @@ from webhook_dispatch import (
     verify_signature, extract_contact_id, find_matching_reply_tasks,
     build_synthetic_prompt, extract_message,
 )
+from webhook_dispatch import extract_signature
+
+
+def test_extract_signature_reads_ghl_header():
+    assert extract_signature({"x-ghl-signature": "abc"}) == "abc"
+
+
+def test_extract_signature_reads_wh_header():
+    """GHL's documented header name. Which one it really sends is untested
+    against production, so both are accepted."""
+    assert extract_signature({"x-wh-signature": "abc"}) == "abc"
+
+
+def test_extract_signature_is_case_insensitive():
+    assert extract_signature({"X-WH-Signature": "abc"}) == "abc"
+
+
+def test_extract_signature_returns_none_when_absent():
+    assert extract_signature({"content-type": "application/json"}) is None
+
+
+def test_test_mode_bypass_still_works_for_local_runs(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_TEST_MODE", "1")
+    assert verify_signature(b"body", None) is True
+
+
+def test_bypass_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("WEBHOOK_TEST_MODE", raising=False)
+    assert verify_signature(b"body", None) is False
 
 
 def test_verify_signature_test_mode(monkeypatch):
