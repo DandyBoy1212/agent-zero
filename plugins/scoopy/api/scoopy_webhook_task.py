@@ -20,7 +20,7 @@ _HELPERS = pathlib.Path(__file__).resolve().parent.parent / "helpers"
 if str(_HELPERS) not in sys.path:
     sys.path.insert(0, str(_HELPERS))
 
-from webhook_dispatch import verify_signature, extract_contact_id  # noqa: E402
+from webhook_dispatch import verify_signature, extract_signature, extract_contact_id  # noqa: E402
 from webhook_task_dispatch import (  # noqa: E402
     extract_task,
     determine_event,
@@ -49,10 +49,7 @@ class ScoopyWebhookTask(ApiHandler):
 
     async def process(self, input: dict, request: Request) -> dict | Response:
         raw = request.get_data() or b""
-        sig = (
-            request.headers.get("x-wh-signature")
-            or request.headers.get("X-WH-Signature")
-        )
+        sig = extract_signature(request.headers)
         if not verify_signature(raw, sig):
             return Response(
                 '{"status": "unauthorized"}',

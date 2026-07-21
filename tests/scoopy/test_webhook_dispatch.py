@@ -165,3 +165,15 @@ def test_extract_message_n8n_string_body():
 def test_extract_message_missing_returns_empty_dict():
     msg = extract_message({"contactId": "c1"})
     assert msg["body"] is None
+
+
+def test_task_endpoint_accepts_both_signature_header_spellings():
+    """scoopy_webhook_task.py must resolve signatures the same way
+    scoopy_webhook_message.py does — via the shared extract_signature
+    helper — not a hardcoded single header name. Regression test for the
+    two endpoints disagreeing on x-wh-signature vs x-ghl-signature."""
+    import scoopy_webhook_task as task_endpoint
+
+    assert task_endpoint.extract_signature is extract_signature
+    assert task_endpoint.extract_signature({"x-wh-signature": "abc"}) == "abc"
+    assert task_endpoint.extract_signature({"x-ghl-signature": "abc"}) == "abc"
