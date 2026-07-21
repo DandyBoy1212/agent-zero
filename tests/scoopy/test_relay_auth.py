@@ -56,3 +56,28 @@ def test_matching_non_ascii_key_is_accepted(monkeypatch):
     """A legitimate non-ASCII key must still be accepted, not just blocked."""
     monkeypatch.setenv("SCOOPY_RELAY_KEY", "café")
     assert check_relay_key("café") is None
+
+
+def test_unencodable_provided_key_is_rejected_not_unicodeencodeerror(monkeypatch):
+    """A provided key containing a lone surrogate must fail closed with
+    RelayAuthError, not UnicodeEncodeError.
+
+    WSGI/ASGI servers commonly decode raw header bytes with
+    surrogateescape, so a header carrying invalid UTF-8 arrives as exactly
+    this kind of string. str.encode("utf-8") raises UnicodeEncodeError on
+    it, which would otherwise escape as an unhandled 500 instead of the
+    clean 401 callers expect from `except RelayAuthError`.
+    """
+    monkeypatch.setenv("SCOOPY_RELAY_KEY", "s3cret-key")
+    with pytest.raises(RelayAuthError):
+        check_relay_key("\udc80abc")
+
+
+def test_unencodable_configured_key_is_rejected_not_unicodeencodeerror(monkeypatch):
+    """The mirror case: an unencodable configured key must also raise
+    RelayAuthError rather than crashing, even against a well-formed
+    provided key.
+    """
+    monkeypatch.setenv("SCOOPY_RELAY_KEY", "\udc80abc")
+    with pytest.raises(RelayAuthError):
+        check_relay_key("anything")

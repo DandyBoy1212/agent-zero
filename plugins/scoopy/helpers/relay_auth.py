@@ -40,6 +40,18 @@ def check_relay_key(provided: str | None) -> None:
     # Compare UTF-8 encoded bytes rather than str: hmac.compare_digest raises
     # TypeError for non-ASCII str operands, which would otherwise escape as
     # an unhandled 500 instead of the RelayAuthError callers expect.
-    if not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
+    #
+    # Encoding itself can also raise: WSGI/ASGI servers commonly decode raw
+    # header bytes with surrogateescape, so a header carrying invalid UTF-8
+    # arrives as a str containing a lone surrogate (e.g. "\udc80"), and
+    # str.encode("utf-8") rejects that with UnicodeEncodeError. Treat a key
+    # that cannot even be encoded as simply invalid, same as any other
+    # mismatch, rather than letting the encoding error escape as a 500.
+    try:
+        provided_bytes = provided.encode("utf-8")
+        expected_bytes = expected.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise RelayAuthError("key not encodable as utf-8") from exc
+    if not hmac.compare_digest(provided_bytes, expected_bytes):
         raise RelayAuthError("invalid key")
     return None
