@@ -14,6 +14,7 @@ from helpers.api import ApiHandler, Response
 from approval import default_store
 from inbox_render import render_inbox
 from scoopy_logging import log
+from relay_auth import RelayAuthError, check_relay_key
 
 _TEMPLATE = (pathlib.Path(__file__).resolve().parent.parent / "ui" / "inbox.html").read_text(encoding="utf-8")
 
@@ -29,6 +30,14 @@ class ScoopyInbox(ApiHandler):
     def get_methods(cls) -> list[str]: return ["GET"]
 
     async def process(self, input: dict[str, Any], request) -> Response:
+        try:
+            check_relay_key(request.headers.get("X-API-KEY"))
+        except RelayAuthError:
+            return Response(
+                '<div class="card error">unauthorized</div>',
+                status=401,
+                mimetype="text/html",
+            )
         pending = default_store.list_pending()
         log("inbox_view", pending_count=len(pending))
         cards_html = render_inbox(pending)

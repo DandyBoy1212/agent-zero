@@ -8,3 +8,7 @@ import pathlib
 _HELPERS = pathlib.Path(__file__).resolve().parents[2] / "plugins" / "scoopy" / "helpers"
 if str(_HELPERS) not in sys.path:
     sys.path.insert(0, str(_HELPERS))
+
+_API = pathlib.Path(__file__).resolve().parents[2] / "plugins" / "scoopy" / "api"
+if str(_API) not in sys.path:
+    sys.path.insert(0, str(_API))

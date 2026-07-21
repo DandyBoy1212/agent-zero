@@ -11,6 +11,7 @@ if str(_HELPERS) not in sys.path:
 from helpers.api import ApiHandler, Response
 from approval import default_store
 from scoopy_logging import log
+from relay_auth import RelayAuthError, check_relay_key
 
 
 class ScoopyInboxJson(ApiHandler):
@@ -23,7 +24,15 @@ class ScoopyInboxJson(ApiHandler):
     @classmethod
     def get_methods(cls): return ["GET"]
 
-    async def process(self, input: dict[str, Any], request) -> dict[str, Any]:
+    async def process(self, input: dict[str, Any], request) -> dict[str, Any] | Response:
+        try:
+            check_relay_key(request.headers.get("X-API-KEY"))
+        except RelayAuthError:
+            return Response(
+                '{"status": "unauthorized"}',
+                status=401,
+                mimetype="application/json",
+            )
         pending = default_store.list_pending()
         cards = []
         for token, card in pending:
