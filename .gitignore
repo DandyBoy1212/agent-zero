@@ -50,3 +50,11 @@ agent_history.gif
 
 .agent/**
 .claude/**
+
+# Never commit credential files dropped into the knowledge base.
+# A live API key was found untracked at knowledge/scoopy/manus api key.txt
+# on 2026-07-21. Untracked is one `git add -A` away from permanent history.
+knowledge/**/*api*key*
+knowledge/**/*secret*
+knowledge/**/*token*
+knowledge/**/*credential*
