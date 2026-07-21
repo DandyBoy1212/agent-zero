@@ -26,17 +26,28 @@ class RelayAuthError(Exception):
     """Raised when a request does not carry a valid relay key."""
 
 
-def check_relay_key(provided: str | None) -> None:
-    """Return None if `provided` matches the configured key, else raise.
+def check_relay_key(provided: object) -> None:
+    """Validate `provided` against the configured relay key.
 
-    Uses a constant-time comparison so the response time does not leak how
-    much of the key was correct.
+    Accepts anything, but only ever succeeds for a non-empty `str` that
+    matches SCOOPY_RELAY_KEY exactly (constant-time comparison). Every other
+    input -- wrong key, missing key, unset/empty configured key, or a
+    `provided` that is not a non-empty `str` (None, bytes, list, int, or any
+    other object a header multidict might hand back) -- raises
+    RelayAuthError. No other exception type ever escapes this function.
     """
     expected = os.getenv(ENV_VAR)
     if not expected:
         raise RelayAuthError(f"{ENV_VAR} not configured")
-    if not provided:
-        raise RelayAuthError("missing key")
+    # Validate shape at the boundary rather than reacting to each failure
+    # mode a malformed input can cause downstream (TypeError from
+    # hmac.compare_digest on non-ASCII str, UnicodeEncodeError from encoding
+    # a lone surrogate, AttributeError from calling .encode on something
+    # that isn't a str at all, e.g. bytes/list/int from a misbehaving
+    # header multidict). Anything that is not a non-empty str is simply not
+    # a valid key, full stop -- never coerce it into something comparable.
+    if not isinstance(provided, str) or not provided:
+        raise RelayAuthError("provided key is not a non-empty string")
     # Compare UTF-8 encoded bytes rather than str: hmac.compare_digest raises
     # TypeError for non-ASCII str operands, which would otherwise escape as
     # an unhandled 500 instead of the RelayAuthError callers expect.

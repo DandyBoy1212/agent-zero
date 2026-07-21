@@ -81,3 +81,36 @@ def test_unencodable_configured_key_is_rejected_not_unicodeencodeerror(monkeypat
     monkeypatch.setenv("SCOOPY_RELAY_KEY", "\udc80abc")
     with pytest.raises(RelayAuthError):
         check_relay_key("anything")
+
+
+class _NoEncode:
+    """An object with no .encode method, e.g. a stray header value."""
+
+    def __repr__(self):
+        return "_NoEncode()"
+
+
+@pytest.mark.parametrize(
+    "provided",
+    [
+        b"wrong-key",
+        ["a-key"],
+        12345,
+        _NoEncode(),
+    ],
+    ids=["bytes", "list", "int", "no-encode-object"],
+)
+def test_non_string_provided_key_is_rejected_not_attributeerror(monkeypatch, provided):
+    """Any truthy non-string input must fail closed with RelayAuthError, not
+    AttributeError.
+
+    A repeated-header multidict can hand back a list, a misbehaving
+    upstream can hand back bytes or an int, and none of these have
+    `.encode` (bytes has `.decode` instead). Left unhandled, that would
+    surface as an unhandled 500 instead of the clean 401 callers expect
+    from `except RelayAuthError`. The guard must reject at the boundary
+    based on type, not attempt-then-catch each failure mode individually.
+    """
+    monkeypatch.setenv("SCOOPY_RELAY_KEY", "s3cret-key")
+    with pytest.raises(RelayAuthError):
+        check_relay_key(provided)
