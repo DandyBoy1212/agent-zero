@@ -6,7 +6,6 @@ in the inbox UI; the dispatcher (execute_with_approval) then runs the
 queued actions.
 """
 from __future__ import annotations
-import os
 import sys
 import pathlib
 import json
@@ -78,13 +77,6 @@ class NotifyOwner(Tool):
         except ValueError as e:
             return Response(message=f"error: {e}", break_loop=False)
 
-        inbox_base = os.getenv("SCOOPY_AGENT_URL") or os.getenv("RENDER_EXTERNAL_URL") or ""
-        inbox_url = (
-            f"{inbox_base.rstrip('/')}/api/plugins/scoopy/scoopy_inbox"
-            if inbox_base
-            else "/api/plugins/scoopy/scoopy_inbox"
-        )
-
         if result.get("auto_approved") and result.get("status") == "executed":
             statuses = " · ".join(r.get("status", "?") for r in result.get("results", []))
             log("tool_result", name="notify_owner", outcome="auto_executed")
@@ -97,14 +89,12 @@ class NotifyOwner(Tool):
             log("tool_result", name="notify_owner", outcome="auto_execute_failed")
             msg = (
                 f"⚠️ Auto-execute failed: {result.get('error', 'unknown error')}\n"
-                f"approval_token: {result['approval_token']}\n"
-                f"You can retry via the inbox: {inbox_url}"
+                f"approval_token: {result['approval_token']}"
             )
         else:
             log("tool_result", name="notify_owner", outcome="queued")
             msg = (
                 f"✅ Drafted — queued for your approval.\n\n"
-                f"Open the inbox to approve or edit: {inbox_url}\n\n"
                 f"approval_token: {result['approval_token']}"
             )
         # break_loop=True: this ends the agent's reasoning turn. In auto-approve

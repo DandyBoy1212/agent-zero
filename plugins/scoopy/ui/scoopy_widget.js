@@ -6,6 +6,9 @@
   let isExpanded = false;
   let cards = [];
   let pollTimer = null;
+  let locked = false; // true when the server rejected our last request (e.g. 401):
+                       // we then know nothing about real state and must say so,
+                       // not render a zero/off state as if it were data.
 
   // --- Styles ---
   const css = `
@@ -29,6 +32,7 @@
       background: #fff; color: #2d7a2d; padding: 1px 8px;
       border-radius: 999px; font-size: 12px; font-weight: 700;
     }
+    #scoopy-widget-badge.locked { background: #f8d7da; color: #721c24; }
     #scoopy-widget-toggle-row {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 14px; border-bottom: 1px solid #eee; background: #fafafa;
@@ -45,6 +49,8 @@
       transition: left 0.2s;
     }
     .scoopy-toggle.on::after { left: 18px; }
+    .scoopy-toggle.locked { background: #ddd; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
+    .scoopy-empty.scoopy-locked { color: #a94442; font-weight: 600; }
     #scoopy-widget-cards { max-height: 50vh; overflow-y: auto; padding: 4px 0; }
     .scoopy-card { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
     .scoopy-card:last-child { border-bottom: none; }
@@ -117,10 +123,18 @@
   async function loadInitialState() {
     try {
       const r = await fetch(API + '/scoopy_settings_get');
+      if (!r.ok) throw new Error('unauthorized');
       const j = await r.json();
       autoApprove = !!j.auto_approve;
+      locked = false;
       renderToggle();
-    } catch (e) { /* no-op */ }
+    } catch (e) {
+      // A non-2xx (or network failure) means we do not actually know the
+      // server's auto-approve state. Showing "off" here would tell staff
+      // the human-approval gate is engaged when it might not be.
+      locked = true;
+      renderToggle();
+    }
     poll();
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(poll, 5000);
@@ -128,6 +142,7 @@
 
   async function toggleAutoApprove(e) {
     if (e) e.stopPropagation();
+    if (locked) return; // control is disabled while locked; nothing to toggle
     const newVal = !autoApprove;
     try {
       const r = await fetch(API + '/scoopy_settings_set', {
@@ -135,33 +150,65 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({auto_approve: newVal}),
       });
+      if (!r.ok) throw new Error('unauthorized');
       const j = await r.json();
       if (j.status === 'ok') {
         autoApprove = newVal;
+        locked = false;
         renderToggle();
       }
-    } catch (err) { console.error('toggle failed', err); }
+    } catch (err) {
+      console.error('toggle failed', err);
+      locked = true;
+      renderToggle();
+      renderBadge();
+      if (isExpanded) renderCards();
+    }
   }
 
   function renderToggle() {
     const t = document.getElementById('scoopy-widget-toggle');
     if (!t) return;
+    if (locked) {
+      // Neither on nor off: we don't know, so don't claim either.
+      t.classList.add('locked');
+      t.classList.remove('on');
+      return;
+    }
+    t.classList.remove('locked');
     if (autoApprove) t.classList.add('on'); else t.classList.remove('on');
   }
 
   async function poll() {
     try {
       const r = await fetch(API + '/scoopy_inbox_json');
+      if (!r.ok) throw new Error('unauthorized');
       const j = await r.json();
       cards = j.cards || [];
+      locked = false;
       renderBadge();
+      renderToggle();
       if (isExpanded) renderCards();
-    } catch (e) { /* no-op */ }
+    } catch (e) {
+      // Absence of data must look different from data saying zero: a 401
+      // here does not mean "no pending approvals," it means we can't see.
+      locked = true;
+      renderBadge();
+      renderToggle();
+      if (isExpanded) renderCards();
+    }
   }
 
   function renderBadge() {
     const b = document.getElementById('scoopy-widget-badge');
     if (!b) return;
+    if (locked) {
+      b.textContent = '!';
+      b.classList.add('locked');
+      b.style.display = '';
+      return;
+    }
+    b.classList.remove('locked');
     b.textContent = cards.length;
     b.style.display = cards.length > 0 ? '' : 'none';
   }
@@ -174,6 +221,10 @@
   function renderCards() {
     const container = document.getElementById('scoopy-widget-cards');
     if (!container) return;
+    if (locked) {
+      container.innerHTML = '<div class="scoopy-empty scoopy-locked">Approvals locked. Sign in via the command centre.</div>';
+      return;
+    }
     if (cards.length === 0) {
       container.innerHTML = '<div class="scoopy-empty">No pending approvals.</div>';
       return;

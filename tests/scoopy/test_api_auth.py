@@ -44,8 +44,17 @@ def _handlers():
     from scoopy_inbox_json import ScoopyInboxJson
     from scoopy_settings_get import ScoopySettingsGet
     from scoopy_settings_set import ScoopySettingsSet
+    from scoopy_chat import ScoopyChat
+    from scoopy_chat_poll import ScoopyChatPoll
 
-    return [ScoopyInbox, ScoopyInboxJson, ScoopySettingsGet, ScoopySettingsSet]
+    return [
+        ScoopyInbox,
+        ScoopyInboxJson,
+        ScoopySettingsGet,
+        ScoopySettingsSet,
+        ScoopyChat,
+        ScoopyChatPoll,
+    ]
 
 
 @pytest.mark.parametrize("handler_cls", _handlers())
