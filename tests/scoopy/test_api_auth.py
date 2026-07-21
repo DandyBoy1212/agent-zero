@@ -65,3 +65,44 @@ def test_unconfigured_key_denies_everything(handler_cls, monkeypatch):
     monkeypatch.delenv("SCOOPY_RELAY_KEY", raising=False)
     result = _run(_build(handler_cls), _Req({"X-API-KEY": "anything"}))
     assert _status(result) == 401
+
+
+def test_approver_comes_from_the_request(monkeypatch, key):
+    """The audit trail must not attribute every approval to one person."""
+    import scoopy_approve
+    from scoopy_approve import ScoopyApprove
+
+    captured = {}
+
+    def _fake_execute(*, token, approver, client):
+        captured["approver"] = approver
+        return [{"status": "ok"}]
+
+    monkeypatch.setattr(scoopy_approve, "execute_with_approval", _fake_execute)
+    monkeypatch.setattr(scoopy_approve, "GhlClient", lambda: object())
+
+    req = _Req({"X-API-KEY": key})
+    req.form = {"token": "tok123", "approver": "mick.bain@scoop-patrol.co.uk"}
+    _run(_build(ScoopyApprove), req)
+
+    assert captured["approver"] == "mick.bain@scoop-patrol.co.uk"
+
+
+def test_approver_defaults_to_unknown_not_to_a_name(monkeypatch, key):
+    import scoopy_approve
+    from scoopy_approve import ScoopyApprove
+
+    captured = {}
+
+    def _fake_execute(*, token, approver, client):
+        captured["approver"] = approver
+        return [{"status": "ok"}]
+
+    monkeypatch.setattr(scoopy_approve, "execute_with_approval", _fake_execute)
+    monkeypatch.setattr(scoopy_approve, "GhlClient", lambda: object())
+
+    req = _Req({"X-API-KEY": key})
+    req.form = {"token": "tok123"}
+    _run(_build(ScoopyApprove), req)
+
+    assert captured["approver"] == "unknown"

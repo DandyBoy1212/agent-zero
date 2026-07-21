@@ -37,7 +37,13 @@ class ScoopyApprove(ApiHandler):
         log("approve_clicked", token_prefix=token[:6] if isinstance(token, str) else None)
         try:
             client = GhlClient()
-            results = execute_with_approval(token=token, approver="liam", client=client)
+            approver = (
+                (input or {}).get("approver")
+                or request.form.get("approver")
+                or request.args.get("approver")
+                or "unknown"
+            )
+            results = execute_with_approval(token=token, approver=approver, client=client)
         except ApprovalError as e:
             log("approval_rejected", token_prefix=token[:6], reason=str(e))
             return Response(f'<div class="card error">approval error: {escape(str(e))}</div>', status=400, mimetype="text/html")
