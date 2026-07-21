@@ -1,14 +1,52 @@
+# Render Blueprint for Scoopy.
+#
+# IMPORTANT HISTORY, 2026-07-21. Until today this file was never applied.
+# The live `agent-zero` service was created by hand as a NATIVE PYTHON service,
+# so Render built from requirements.txt on its own Python 3.12 builder and
+# ignored both this file and Dockerfile.scoopy entirely. That is why the
+# service had none of the environment variables declared below, and why every
+# deploy since 2026-05-06 failed: numba 0.58.1 refuses to build on Python 3.12
+# (`RuntimeError: Cannot install on Python version 3.12.7`), pulled in by
+# openai-whisper. Building that ML stack from source was never the intent;
+# Dockerfile.scoopy starts from agent0ai/agent-zero-base, which ships it
+# prebuilt.
+#
+# So this file only takes effect if the service is created FROM THIS BLUEPRINT.
+# Editing it does nothing to a hand-made service.
+#
+# Dockerfile.scoopy has never been built by anyone. Create the new service
+# ALONGSIDE the old one and confirm it builds before deleting anything.
+
 services:
   - type: web
     name: scoopy-agent
     runtime: docker
     dockerfilePath: ./Dockerfile.scoopy
     dockerContext: .
-    plan: free
+
+    # `starter` is 512MB, and this image loads torch and faiss before it does
+    # anything useful. `standard` (2GB) is the realistic floor. A disk also
+    # requires a paid instance.
+    plan: standard
     region: oregon
-    # Render routes external HTTPS to the port the container exposes
-    # Agent Zero binds to 0.0.0.0:80 inside the container
+
+    # Attaching a disk disables zero-downtime deploys: only one container can
+    # hold it, so the old one stops before the new one starts. Staff chat being
+    # briefly down does not matter. Inbound GHL webhooks landing in that gap do.
+    disk:
+      name: scoopy-usr
+      # Everything Scoopy remembers lives here: usr/chats, usr/settings.json,
+      # usr/projects/*/.a0proj/memory (faiss), usr/uploads, usr/secrets.env.
+      # Without this the container filesystem resets on every restart, which is
+      # the whole memory-loss problem. NOTE: the Whisper model lives in
+      # /tmp/models/whisper and Render allows one disk per service, so it is
+      # NOT persisted and re-downloads (~139MB) on every restart.
+      mountPath: /a0/usr
+      sizeGB: 5
+
+    # Dockerfile.scoopy EXPOSEs 10000 and start_render.sh binds run_ui.py there.
     healthCheckPath: /api/health
+
     envVars:
       - key: WEB_UI_HOST
         value: 0.0.0.0
@@ -16,19 +54,41 @@ services:
         value: cf3N4C5qNIshuYMIFgRP
       - key: GHL_USER_ID
         value: ZeBJHpt4vPSaVRPbcbXy
-      # Secrets — set these manually in the Render dashboard or via render CLI
-      # to avoid committing credentials to the repo
+
+      # WEBHOOK_TEST_MODE is deliberately absent. When set to "1",
+      # verify_signature returns True for every caller, which makes the
+      # endpoint that drives Scoopy to act on a customer unauthenticated.
+      # Never set it on a public service.
+
+      # Secrets. `sync: false` means Render prompts for the value at creation
+      # and never stores it in the repo. Every one of these must be filled in
+      # or the service comes up degraded rather than failing loudly.
       - key: GHL_API_KEY
         sync: false
       - key: GHL_LOCATION_ID
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: DASHBOARD_PASS
+
+      # AUTH_LOGIN is the USERNAME, not a boolean, and it is load-bearing.
+      # helpers/login.py:8 returns None when it is falsy, and helpers/api.py
+      # then lets every request through requires_auth. Missing AUTH_LOGIN does
+      # not mean password-only, it means login is switched OFF and Agent Zero's
+      # file browser, code execution and message endpoints are open to anyone
+      # with the URL, holding live GHL credentials. Both of these must be set.
+      - key: AUTH_LOGIN
         sync: false
       - key: AUTH_PASSWORD
         sync: false
+
+      # Gates Scoopy's own HTTP endpoints (inbox, settings, chat, chat_poll).
+      # Read from the environment rather than settings.json on purpose:
+      # settings.json lives under usr/ and was wiped on every restart before
+      # the disk above existed.
       - key: SCOOPY_RELAY_KEY
         sync: false
+
+      # Hosted long-term memory. Present in the main repo .env but absent from
+      # the live service, so it has probably never worked in production.
       - key: MEM0_API_KEY
         sync: false
