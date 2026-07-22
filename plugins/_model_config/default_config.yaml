@@ -2,14 +2,24 @@ allow_chat_override: true
 
 chat_model:
   provider: "openrouter"
-  # The EVERYDAY model. Deliberately the cheap tier.
+  # The EVERYDAY model. Deliberately the cheap tier. Liam D's call: k2.6 for
+  # everyday, k3 for the hard ones.
   #
-  # Was moonshotai/kimi-k3 ($3.00/M in, $15.00/M out, 1M context) from
-  # 2026-07-22 until later the same day, when measuring real turns made the
-  # trade look wrong: median 27.6s to Scoopy's first word, and almost all of
-  # what he is actually asked is "what is on today" or "look up this customer".
-  # Paying top rates, on a context window a conversation about dog waste will
-  # never fill, to answer those is waste.
+  # Verified against the live OpenRouter model list on 2026-07-22 rather than
+  # guessed:
+  #   moonshotai/kimi-k2.6   ctx 262,144     $0.68/M in, $3.42/M out
+  #   moonshotai/kimi-k3     ctx 1,048,576   $3.00/M in, $15.00/M out
+  # So everyday costs roughly a fifth of what stepping up does.
+  #
+  # Was k3 for everything until measuring real turns made that look wrong:
+  # median 27.6s to Scoopy's first word, and almost all of what he is actually
+  # asked is "what is on today" or "look up this customer". Paying top rates,
+  # on a context window a conversation about dog waste will never fill, to
+  # answer those is waste.
+  #
+  # Briefly k2.5 by mistake on 2026-07-22: that is what the bundled "Cost
+  # Efficient" preset happened to contain, and taking a preset's value instead
+  # of the one actually asked for is not a shortcut worth having.
   #
   # Hard problems are handled by stepping up rather than by paying for the big
   # model all the time: the think_harder tool switches this conversation to the
@@ -24,9 +34,9 @@ chat_model:
   # wins over this file. That file now lives on the persistent disk, so a value
   # saved through the settings UI will survive restarts and silently override
   # this. If a model change appears not to take effect, look there first.
-  name: "moonshotai/kimi-k2.5"
+  name: "moonshotai/kimi-k2.6"
   api_base: ""
-  ctx_length: 128000
+  ctx_length: 262144
   ctx_history: 0.7
   vision: true
   max_embeds: 10

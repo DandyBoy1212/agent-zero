@@ -84,6 +84,37 @@ def test_scope_must_be_one_of_two_values(ctx):
         engage(ctx, scope="forever")
 
 
+def test_the_two_tiers_are_actually_different_models():
+    """Stepping up has to step somewhere.
+
+    If the everyday model and the Max Power preset ever name the same model,
+    think_harder still reports "switched to the high end model", Scoopy still
+    believes it, and nothing changes. A no-op that announces success is worse
+    than an error, so it is pinned here.
+
+    Also checks the preset still carries a model at all: care_mode resolves it
+    by name, and _resolve_override returns None for anything it cannot resolve,
+    which silently leaves you on the cheap model.
+    """
+    import pathlib
+
+    import yaml
+
+    root = pathlib.Path(__file__).resolve().parents[2] / "plugins" / "_model_config"
+    config = yaml.safe_load((root / "default_config.yaml").read_text(encoding="utf-8"))
+    presets = yaml.safe_load((root / "default_presets.yaml").read_text(encoding="utf-8"))
+
+    everyday = config["chat_model"]["name"]
+    match = [p for p in presets if p.get("name") == MAX_PRESET]
+    assert match, f"preset {MAX_PRESET!r} is gone; max mode resolves to None and does nothing"
+
+    stepped_up = match[0].get("chat", {}).get("name")
+    assert stepped_up, f"preset {MAX_PRESET!r} names no chat model"
+    assert stepped_up != everyday, (
+        f"max mode steps from {everyday} to {stepped_up}, which is nowhere"
+    )
+
+
 def test_an_unrelated_override_is_not_read_as_max(ctx):
     """Someone using /config to pick a different preset for their own reasons
     is not in max mode, and must not be reported as though they were."""

@@ -1,10 +1,20 @@
+# What `think_harder` and the command centre's careful-thinking toggle switch
+# to. Resolved BY NAME from plugins/scoopy/helpers/care_mode.py, so renaming
+# this entry silently disables max mode: _resolve_override returns None and you
+# stay on the everyday model with no error anywhere. A test pins the name.
+#
+# kimi-k3 rather than a Claude model. Liam D asked for k2.6 everyday and k3 for
+# the hard ones; the Claude entry here was inherited from the stock preset and
+# was never a choice anybody made. Verified live on OpenRouter 2026-07-22:
+# $3.00/M in, $15.00/M out at 1,048,576 context, against $0.68/$3.42 for
+# everyday.
 - name: "Max Power"
   chat:
     provider: "openrouter"
-    name: "anthropic/claude-opus-4.6"
+    name: "moonshotai/kimi-k3"
     api_key: ""
     api_base: ""
-    ctx_length: 200000
+    ctx_length: 1048576
     ctx_history: 0.7
     vision: true
   utility:
