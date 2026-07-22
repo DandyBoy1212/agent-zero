@@ -1,6 +1,36 @@
 # Shell interface: auto = auto-detect (SSH when non-dockerized, local when dockerized),
 # true = always SSH, false = always local TTY
-ssh_enabled: auto
+#
+# Set to `false` deliberately on 2026-07-21, Liam D's call, for the development
+# phase: Scoopy should be able to work around problems himself while the MCP
+# server does not exist yet.
+#
+# What `auto` would do instead: Scoopy runs non-dockerized on Render (the
+# service is a native Python service, not the Docker image), so auto-detect
+# chooses SSH and tries to reach a sandbox on port 55022 that is not there.
+# Code execution would be silently broken rather than sandboxed.
+#
+# What this costs. Upstream's safety model is that the container IS the
+# sandbox: dockerized means a local shell is safe because the blast radius
+# stops at the container wall. Non-dockerized means SSH into a separate
+# sandbox. Choosing `false` outside Docker means arbitrary code runs wherever
+# Agent Zero runs, with whatever that process can reach.
+#
+# On Render that is: this service's filesystem, its disk, and its environment,
+# which holds GHL_API_KEY and OPENROUTER_API_KEY. Render isolates the service
+# from everything else, so the exposure is the same as it would be with the
+# Docker image on Render -- but it is not nothing.
+#
+# THEREFORE, NON-NEGOTIABLE: AUTH_LOGIN and AUTH_PASSWORD must both be set on
+# any publicly reachable deployment. helpers/login.py:8 returns None when
+# AUTH_LOGIN is falsy and helpers/api.py then admits every request. Without
+# them, this line turns Scoopy into an unauthenticated remote-code-execution
+# endpoint sitting next to live customer data.
+#
+# Revisit before Scoopy stops being a development project. Once the MCP server
+# provides billing, routing and service tools, the argument for a shell mostly
+# goes away.
+ssh_enabled: false
 
 # SSH credentials (used when ssh_enabled is true or auto-detected)
 # ssh_addr: derived from rfc_url setting when empty
