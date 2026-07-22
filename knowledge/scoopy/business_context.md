@@ -11,9 +11,7 @@
 **Owners:** Liam and Liam (referred to as "Liam and Liam" in customer-facing sign-offs on first contact).
 **Operations driver:** Mick handles all regular maintenance routes. Liam and Liam handle new customer onboarding and Garden Rescue visits.
 
-**Tagline:** "Always on Doody" — use this naturally, not forced.
-
-For brand voice and tone, also read knowledge/scoopy/brand_document.md.
+**Tagline:** "Always on dooty" — use this naturally, not forced.
 
 **Internal only — do not mention to customers:** A probiotic sanitiser product is in development. Never reference this.
 
@@ -193,13 +191,13 @@ This affects the Garden Rescue visit complexity but does not change regular main
 - Use plain English. Scottish context — customers are local, language can reflect that naturally.
 - Sign-off for first or formal messages: *"Liam & Liam, Team Scoop Patrol 🐾"*
 - Casual follow-ups in ongoing threads do not need the sign-off.
-- Tagline you can use naturally: "Always on Doody"
+- Tagline you can use naturally: "always on dooty"
 - Reference the dog by name whenever it's in the record. Customers love this.
 - Mention Mick when relevant to route/scheduling ("Mick will be with you on Thursday").
 
 **Phrases to use:**
 - "We're always here if you need us"
-- "Always on Doody"
+- "Always on dooty"
 - "Liam & Liam, Team Scoop Patrol 🐾" (sign-off)
 
 **Never:**
@@ -278,3 +276,63 @@ When messaging customers about their regular service, Mick is the person they'll
 - **Cancellation reason field** does not exist in GHL yet — needs creating
 - **Card capture timing** — goal is to capture card before Garden Rescue visit, not after. Not yet implemented.
 - **Payment Status sync** — field is broken/unreliable. Do not trust it. Use Stripe and GHL invoice schedules as source of truth for payment status.
+
+
+Fair concern — let me unpack the cost reality and offer a cleaner approach.
+
+## Real cost per inbound message (Approach A — no filter)
+
+| Step | Cost | Why |
+|---|---|---|
+| Webhook fire (GHL → Render) | Free | Within Render's request limits |
+| Our handler runs | Free | Few ms of CPU |
+| 1 GHL API call to fetch tasks | Free | Within GHL rate limits |
+| **If no match → 200 OK, done** | **Zero LLM tokens** | Agent never wakes |
+| If match → agent runs | $$ tokens | Only when there's actually work |
+
+So the **only expensive step is when the agent actually wakes** — which only happens when a `[REPLY]` task exists. At Scoop Patrol volume (~tens of inbound msgs/day with maybe a handful of active `[REPLY]` tasks at any time), this is fine.
+
+**But** — you're right that pinging is wasteful. And it matches the existing GHL pattern at Scoop Patrol (the recurring-invoice tag pattern). So:
+
+## Switch to Approach B — tag filter
+
+This matches your existing "disappearing tag" convention from `recurring_invoice_ops_guide.md`:
+
+1. When you create a `[REPLY]` task on a contact, also add the tag **`scoopy-watching`** to the contact
+2. GHL workflow gets a **filter step** before the webhook action: only fire if contact has tag `scoopy-watching`
+3. When Scoopy completes the task (or you do manually), remove the tag → webhook stops firing for that contact
+
+Webhook only fires for ~handful of "actively watching" contacts. Zero noise. Zero pings for unrelated traffic.
+
+## Updated GHL workflow setup
+
+1. Trigger: **Customer Replied** (or Inbound Message)
+2. **Filter step (NEW):** "Contact has tag" → `scoopy-watching`
+3. Webhook action — same URL + JSON body as before:
+   - URL: `https://agent-zero-1-h0f7.onrender.com/api/plugins/scoopy/scoopy_webhook_message`
+   - Body:
+     ```json
+     {
+       "contactId": "{{contact.id}}",
+       "locationId": "{{location.id}}",
+       "conversationId": "{{message.conversation_id}}",
+       "messageType": "{{message.type}}",
+       "direction": "inbound",
+       "body": "{{message.body}}"
+     }
+     ```
+
+## Updated demo seed task
+
+When you set up the [REPLY] task on the test contact:
+- Title: `[REPLY] Scoopy demo test`
+- Body: `If they say anything about service times, reply with our 8am-5pm window. Else escalate to me.`
+- Assigned to: Scoopy
+- Due: today
+- **Also: add tag `scoopy-watching` to the contact** ← new step
+
+Once `ghl_create_task` skill is built (Phase 7), it'll auto-add the tag and you won't need this manual step.
+
+**`WEBHOOK_TEST_MODE=1` is in the right place** (Render's "Manage → Environment" section). After the redeploy with the start command fix, that bypass takes effect.
+
+Ping me when Render's serving and you've seeded the test task — I'll watch logs while you trigger the first live test.
