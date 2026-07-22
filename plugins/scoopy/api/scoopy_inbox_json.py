@@ -54,6 +54,7 @@ class ScoopyInboxJson(ApiHandler):
                 "detail": card.get("detail", ""),
                 "customer_name": card.get("customer_name", ""),
                 "trigger_context": card.get("trigger_context", "unknown"),
+                "conversation_id": card.get("conversation_id", ""),
             })
         log("inbox_json_view", count=len(cards))
         return {"cards": cards}

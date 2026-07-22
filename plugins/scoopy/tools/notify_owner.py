@@ -73,6 +73,9 @@ class NotifyOwner(Tool):
                 reasoning=reasoning,
                 action_type=action_type,
                 pending_actions=pending_actions,
+                # The chat surface filters cards by this, so a card raised in
+                # one conversation does not surface in another.
+                conversation_id=getattr(getattr(self.agent, "context", None), "id", "") or "",
             )
         except ValueError as e:
             return Response(message=f"error: {e}", break_loop=False)

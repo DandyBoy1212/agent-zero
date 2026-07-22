@@ -188,3 +188,29 @@ def test_auto_approve_setting_lives_on_the_persistent_disk():
 
     assert "usr" in str(sno._RUNTIME_FILE).replace("\\", "/").split("/")
     assert "tmp" not in str(sno._RUNTIME_FILE).replace("\\", "/").split("/")
+
+
+def test_card_records_which_conversation_raised_it():
+    """Without this the chat shows every pending card on every thread. Observed
+    2026-07-22: a card raised by an API test appeared inside a staff member's
+    unrelated conversation and read as a random suggestion."""
+    store = ApprovalStore(ttl_seconds=60)
+    notify_owner(
+        store=store, contact_id="abc", draft="", reasoning="r",
+        action_type="in_scope", pending_actions=[],
+        conversation_id="thread-xyz",
+    )
+    (_t, card), = store.list_pending()
+    assert card["conversation_id"] == "thread-xyz"
+
+
+def test_a_card_raised_outside_a_chat_has_no_conversation():
+    """Webhooks and crons raise cards with no conversation. Those must still be
+    visible everywhere; a hidden card is an action that never happens."""
+    store = ApprovalStore(ttl_seconds=60)
+    notify_owner(
+        store=store, contact_id="abc", draft="", reasoning="r",
+        action_type="in_scope", pending_actions=[],
+    )
+    (_t, card), = store.list_pending()
+    assert card["conversation_id"] == ""

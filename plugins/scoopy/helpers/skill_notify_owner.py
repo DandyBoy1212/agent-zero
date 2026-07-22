@@ -59,6 +59,7 @@ def notify_owner(
     detail: str = "",
     customer_name: str = "",
     trigger_context: str = "unknown",
+    conversation_id: str = "",
 ) -> dict[str, Any]:
     if action_type not in VALID_ACTION_TYPES:
         raise ValueError(
@@ -86,6 +87,15 @@ def notify_owner(
         # Recorded now, read by nobody yet. Nearly free at write time and
         # awkward to backfill, and the approval grid in the spec needs it.
         "trigger_context": trigger_context,
+        # Which conversation raised this. Without it the chat surface shows
+        # every pending card on every thread, because a card is raised against
+        # a customer and there was no link back to a chat. Observed 2026-07-22:
+        # a card raised by an API test appeared inside Liam D's conversation
+        # about something else entirely, and read as a random suggestion.
+        # Empty means "raised outside a chat" (a webhook, a cron), and those
+        # must still show everywhere, because a hidden card is an action that
+        # never happens.
+        "conversation_id": conversation_id,
     }
     token = s.issue(card=card)
     log("notify_owner_queued",
