@@ -18,10 +18,15 @@ def test_search_passes_namespace_as_a_filter_not_a_top_level_kwarg():
     mc = Mem0Client(api_key="x", client=inner)
     out = mc.search(namespace="contact:abc", query="payment", limit=3)
     assert out == [{"id": "m1", "memory": "fact"}]
-    inner.search.assert_called_once_with(
-        "payment",
-        options={"filters": {"user_id": "contact:abc"}, "top_k": 3},
-    )
+    args, kwargs = inner.search.call_args
+    assert args[0] == "payment"
+    opts = kwargs["options"]
+    # Must be the pydantic model, not a dict shaped like it: the SDK calls
+    # .model_dump() on it and a dict raises AttributeError. Both shapes have
+    # now failed in production, so assert the type as well as the values.
+    assert hasattr(opts, "model_dump"), f"options must be a pydantic model, got {type(opts)}"
+    assert opts.filters == {"user_id": "contact:abc"}
+    assert opts.top_k == 3
 
 
 def test_search_never_passes_user_id_at_the_top_level():

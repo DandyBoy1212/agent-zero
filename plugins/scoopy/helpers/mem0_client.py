@@ -14,10 +14,15 @@ from scoopy_logging import log, timed
 
 try:
     from mem0 import MemoryClient
+    # SearchMemoryOptions is a pydantic BaseModel and the SDK calls
+    # .model_dump() on whatever it is given, so a plain dict raises
+    # "'dict' object has no attribute 'model_dump'". Observed live 2026-07-22.
+    from mem0.client.types import SearchMemoryOptions
     _SDK_AVAILABLE = True
 except ImportError:
     _SDK_AVAILABLE = False
     MemoryClient = None  # type: ignore[assignment,misc]
+    SearchMemoryOptions = None  # type: ignore[assignment,misc]
 
 
 class Mem0Client:
@@ -50,9 +55,18 @@ class Mem0Client:
             # correctly and never once read back. The failure was invisible
             # because Agent Zero's own vector memory answered instead, and
             # Scoopy reported "memory's working fine".
+            # Two live failures got us here, so both are recorded:
+            #   search(query=..., user_id=..., limit=...)  ->
+            #     "Top-level entity parameters frozenset({'user_id'}) are not
+            #      supported in search(). Use filters={'user_id': '...'}"
+            #   search(query, options={...})               ->
+            #     "'dict' object has no attribute 'model_dump'"
+            # The SDK wants the pydantic model, not a dict shaped like it.
             results = self._client.search(
                 query,
-                options={"filters": {"user_id": namespace}, "top_k": limit},
+                options=SearchMemoryOptions(
+                    filters={"user_id": namespace}, top_k=limit
+                ),
             )
             # Normalize: SDK may return list-of-dicts directly OR {"results": [...]}
             if isinstance(results, dict):
