@@ -168,3 +168,23 @@ def test_trigger_context_is_validated():
             action_type="in_scope", pending_actions=[],
             trigger_context="whenever",
         )
+
+
+def test_auto_approve_is_off_by_default(monkeypatch, tmp_path):
+    """Stage one of the trust ladder: everything asks. The old default was ON,
+    which meant Scoopy executed without asking and, because the setting lived
+    in tmp/, silently returned to executing after every restart."""
+    import skill_notify_owner as sno
+
+    monkeypatch.setattr(sno, "_RUNTIME_FILE", tmp_path / "runtime.json")
+    monkeypatch.delenv("SCOOPY_AUTO_APPROVE", raising=False)
+    assert sno._auto_approve_enabled() is False
+
+
+def test_auto_approve_setting_lives_on_the_persistent_disk():
+    """tmp/ is wiped on every restart; usr/ is the mounted disk. A safety
+    setting that resets itself to the unsafe value is worse than none."""
+    import skill_notify_owner as sno
+
+    assert "usr" in str(sno._RUNTIME_FILE).replace("\\", "/").split("/")
+    assert "tmp" not in str(sno._RUNTIME_FILE).replace("\\", "/").split("/")

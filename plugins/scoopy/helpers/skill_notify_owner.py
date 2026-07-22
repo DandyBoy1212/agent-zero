@@ -1,14 +1,15 @@
 """notify_owner — the agent's path for proposing actions.
 
 Modes:
-- auto-approve (SCOOPY_AUTO_APPROVE=1, default): immediately runs the
-  pending_actions and returns results. Auto-notes still fire on each write.
-- approval-required (SCOOPY_AUTO_APPROVE=0): queues a card; owner clicks
-  Approve in the inbox; dispatcher then runs the actions.
+- approval-required (SCOOPY_AUTO_APPROVE unset or 0, default): queues a card;
+  owner clicks Approve in the inbox; dispatcher then runs the actions.
+- auto-approve (SCOOPY_AUTO_APPROVE=1): immediately runs the pending_actions
+  and returns results. Auto-notes still fire on each write.
 
 The same call signature works for both modes. Switch the env var per
-deployment — auto-approve for trusted day-to-day, approval-required for
-prospect demos / when "showing the safety story" matters.
+deployment — approval-required is stage one of the trust ladder (everything
+asks) and is the default; auto-approve is an opt-in for trusted day-to-day
+once that trust is earned.
 """
 from __future__ import annotations
 import json
@@ -25,7 +26,10 @@ VALID_ACTION_TYPES = {
 
 VALID_TRIGGER_CONTEXTS = {"asked", "reactive", "scheduled", "unknown"}
 
-_RUNTIME_FILE = Path("tmp/scoopy_runtime.json")
+# usr/ is the persistent disk mount (Render: /a0/usr); tmp/ is wiped on every
+# restart. This setting used to live in tmp/, which meant turning auto-approve
+# off silently reverted to on after every restart.
+_RUNTIME_FILE = Path("usr/scoopy_runtime.json")
 
 
 def _auto_approve_enabled() -> bool:
@@ -37,7 +41,10 @@ def _auto_approve_enabled() -> bool:
                 return bool(data["auto_approve"])
     except Exception:
         pass
-    return os.getenv("SCOOPY_AUTO_APPROVE", "1").strip() not in ("", "0", "false", "False", "no", "NO")
+    # Stage one of the trust ladder is everything-asks: an unset or falsy
+    # SCOOPY_AUTO_APPROVE means auto-approve is OFF by default. Opt in
+    # explicitly with SCOOPY_AUTO_APPROVE=1 once that trust is earned.
+    return os.getenv("SCOOPY_AUTO_APPROVE", "0").strip() in ("1", "true", "True", "yes", "YES")
 
 
 def notify_owner(

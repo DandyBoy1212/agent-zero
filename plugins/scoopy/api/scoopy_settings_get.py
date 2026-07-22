@@ -13,7 +13,7 @@ from helpers.api import ApiHandler, Response
 from scoopy_logging import log
 from relay_auth import RelayAuthError, check_relay_key
 
-_RUNTIME_FILE = pathlib.Path("tmp/scoopy_runtime.json")
+_RUNTIME_FILE = pathlib.Path("usr/scoopy_runtime.json")
 
 
 class ScoopySettingsGet(ApiHandler):
