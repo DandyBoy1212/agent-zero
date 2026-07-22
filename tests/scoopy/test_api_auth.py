@@ -171,3 +171,20 @@ def test_no_relay_key_and_no_approver_still_approves(monkeypatch, key):
 
     assert captured["approver"] == "unknown"
     assert _status(result) == 200
+
+
+def test_settings_get_agrees_with_what_is_actually_enforced(monkeypatch, key):
+    """These were two copies of one rule and they had drifted: enforcement
+    defaulted OFF while the settings screen defaulted ON. A UI that reports the
+    opposite of reality about whether an agent can act unsupervised is the same
+    class of bug as the approval widget reporting zero pending approvals while
+    cards queued."""
+    import skill_notify_owner as sno
+    from scoopy_settings_get import ScoopySettingsGet
+
+    monkeypatch.delenv("SCOOPY_AUTO_APPROVE", raising=False)
+    monkeypatch.setattr(sno, "_RUNTIME_FILE", __import__("pathlib").Path("does-not-exist.json"))
+
+    reported = _run(_build(ScoopySettingsGet), _Req({"X-API-KEY": key}))
+    assert reported["auto_approve"] == sno._auto_approve_enabled()
+    assert reported["auto_approve"] is False

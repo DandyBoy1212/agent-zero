@@ -12,6 +12,7 @@ if str(_HELPERS) not in sys.path:
 from helpers.api import ApiHandler, Response
 from scoopy_logging import log
 from relay_auth import RelayAuthError, check_relay_key
+from skill_notify_owner import _auto_approve_enabled
 
 _RUNTIME_FILE = pathlib.Path("usr/scoopy_runtime.json")
 
@@ -35,16 +36,13 @@ class ScoopySettingsGet(ApiHandler):
                 status=401,
                 mimetype="application/json",
             )
-        auto_approve = None
-        try:
-            if _RUNTIME_FILE.exists():
-                data = json.loads(_RUNTIME_FILE.read_text(encoding="utf-8"))
-                if "auto_approve" in data:
-                    auto_approve = bool(data["auto_approve"])
-        except Exception:
-            pass
-        if auto_approve is None:
-            env_val = os.getenv("SCOOPY_AUTO_APPROVE", "1").strip()
-            auto_approve = env_val not in ("", "0", "false", "False", "no", "NO")
+        # Ask the same function that ENFORCES it, rather than reimplementing
+        # the rule. These had drifted: enforcement defaulted to off while this
+        # copy still defaulted to on, so the settings screen would have told
+        # staff that Scoopy was acting freely when he was asking for
+        # everything. A second copy of a rule is a second answer waiting to
+        # happen, and this surface exists to tell a human the truth about
+        # whether the agent can act unsupervised.
+        auto_approve = _auto_approve_enabled()
         log("settings_get", auto_approve=auto_approve)
         return {"auto_approve": auto_approve}
