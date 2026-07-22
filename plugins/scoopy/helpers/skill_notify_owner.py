@@ -23,6 +23,8 @@ VALID_ACTION_TYPES = {
     "in_scope", "drift", "escalation", "create_task", "memory_candidate",
 }
 
+VALID_TRIGGER_CONTEXTS = {"asked", "reactive", "scheduled", "unknown"}
+
 _RUNTIME_FILE = Path("tmp/scoopy_runtime.json")
 
 
@@ -46,10 +48,19 @@ def notify_owner(
     reasoning: str,
     action_type: str,
     pending_actions: list[dict[str, Any]],
+    summary: str = "",
+    detail: str = "",
+    customer_name: str = "",
+    trigger_context: str = "unknown",
 ) -> dict[str, Any]:
     if action_type not in VALID_ACTION_TYPES:
         raise ValueError(
             f"action_type must be one of {sorted(VALID_ACTION_TYPES)}, got {action_type!r}"
+        )
+    if trigger_context not in VALID_TRIGGER_CONTEXTS:
+        raise ValueError(
+            f"trigger_context must be one of {sorted(VALID_TRIGGER_CONTEXTS)}, "
+            f"got {trigger_context!r}"
         )
     s = store if store is not None else default_store
     card = {
@@ -58,6 +69,16 @@ def notify_owner(
         "reasoning": reasoning,
         "action_type": action_type,
         "pending_actions": list(pending_actions),
+        # The human-facing face of the card. `draft` is a proposed customer
+        # message and was being reused as a description for cards that are not
+        # messages, which renders a payload or a blank. A person cannot consent
+        # to a payload.
+        "summary": summary,
+        "detail": detail,
+        "customer_name": customer_name,
+        # Recorded now, read by nobody yet. Nearly free at write time and
+        # awkward to backfill, and the approval grid in the spec needs it.
+        "trigger_context": trigger_context,
     }
     token = s.issue(card=card)
     log("notify_owner_queued",

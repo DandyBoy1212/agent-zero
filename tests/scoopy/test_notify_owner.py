@@ -121,3 +121,50 @@ def test_notify_owner_queues_when_env_zero(monkeypatch):
     )
     assert result["status"] == "queued"
     assert result["auto_approved"] is False
+
+
+def test_card_carries_a_human_summary_and_the_money():
+    store = ApprovalStore(ttl_seconds=60)
+    notify_owner(
+        store=store,
+        contact_id="abc123",
+        draft="",
+        reasoning="operator asked to add sanitisation",
+        action_type="in_scope",
+        pending_actions=[{"skill": "ghl_field_update", "args": {}}],
+        summary="Add sanitisation for Karen Mitchell?",
+        detail="Adds £12.00 per month. Next bill goes from £48.00 to £60.00.",
+        customer_name="Karen Mitchell",
+        trigger_context="asked",
+    )
+    (_token, card), = store.list_pending()
+    assert card["summary"] == "Add sanitisation for Karen Mitchell?"
+    assert card["detail"] == "Adds £12.00 per month. Next bill goes from £48.00 to £60.00."
+    assert card["customer_name"] == "Karen Mitchell"
+    assert card["trigger_context"] == "asked"
+
+
+def test_existing_call_sites_keep_working_without_the_new_fields():
+    """Every current caller omits these. They must default, not explode."""
+    store = ApprovalStore(ttl_seconds=60)
+    notify_owner(
+        store=store,
+        contact_id="abc123",
+        draft="Hi Karen, just confirming.",
+        reasoning="reply to customer",
+        action_type="in_scope",
+        pending_actions=[{"skill": "ghl_send_message", "args": {}}],
+    )
+    (_token, card), = store.list_pending()
+    assert card["summary"] == ""
+    assert card["trigger_context"] == "unknown"
+
+
+def test_trigger_context_is_validated():
+    store = ApprovalStore(ttl_seconds=60)
+    with pytest.raises(ValueError):
+        notify_owner(
+            store=store, contact_id="a", draft="", reasoning="r",
+            action_type="in_scope", pending_actions=[],
+            trigger_context="whenever",
+        )
