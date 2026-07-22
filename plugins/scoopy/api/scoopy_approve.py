@@ -29,6 +29,7 @@ never turn into a 401 here. Do not "simplify" this by trusting the
 submitted approver unconditionally -- that's the exact hole this closes.
 """
 from __future__ import annotations
+import json
 import sys, pathlib
 from html import escape
 from typing import Any
@@ -85,13 +86,70 @@ class ScoopyApprove(ApiHandler):
         except ApprovalError as e:
             log("approval_rejected", token_prefix=token[:6], reason=str(e))
             return Response(f'<div class="card error">approval error: {escape(str(e))}</div>', status=400, mimetype="text/html")
-        # Summary HTML
-        summary = " &middot; ".join(escape(r.get("status","?")) for r in results) or "no actions"
+        # What actually happened, as opposed to what was clicked.
+        #
+        # These are three different outcomes and they used to be one:
+        #
+        #   executed   at least one action ran and none failed
+        #   partial    some ran, some failed
+        #   nothing    the card carried no actions, or every action failed
+        #
+        # All three previously returned 200 with success styling, including the
+        # empty case, whose entire summary was the string "no actions". The
+        # command centre only checks res.ok, so a card that did nothing at all
+        # rendered as a green "Approved by Liam Dand". That is exactly what
+        # happened on 2026-07-22: a task-completion approval reported success
+        # and the task stayed open, and Scoopy had to complete it directly
+        # through the API afterwards.
+        #
+        # A tap is not a write. This endpoint now says which it was.
+        ran = [r for r in results if (r.get("status") or "") not in ("error", "")]
+        failed = [r for r in results if (r.get("status") or "") == "error"]
+        if ran and not failed:
+            outcome = "executed"
+        elif ran and failed:
+            outcome = "partial"
+        else:
+            outcome = "nothing"
+
         log(
             "approve_executed",
             token_prefix=token[:6],
-            status="success",
-            results_summary=summary.replace(" &middot; ", ","),
+            status=outcome,
+            action_count=len(results),
+            failed_count=len(failed),
+            results_summary=",".join(str(r.get("status", "?")) for r in results) or "none",
         )
-        html = f'<div class="card success">Approved &rarr; {summary}</div>'
-        return Response(html, status=200, mimetype="text/html")
+
+        # Content negotiation rather than a changed status code, deliberately.
+        # The common caller is a phone tapping a link in a text message, and
+        # that path renders this response as HTML via HTMX. Returning a 4xx or a
+        # JSON body to it would turn a working confirmation into a broken one.
+        # The relay asks for JSON explicitly and gets the detail it needs.
+        wants_json = "application/json" in (request.headers.get("Accept") or "")
+        if wants_json:
+            return Response(
+                json.dumps({
+                    "outcome": outcome,
+                    "ran": len(ran),
+                    "failed": len(failed),
+                    # Reasons, not payloads: enough to tell a person why nothing
+                    # happened, without putting internals on a screen.
+                    "reasons": [str(r.get("reason", "")) for r in failed if r.get("reason")],
+                }),
+                status=200,
+                mimetype="application/json",
+            )
+
+        summary = " &middot; ".join(escape(str(r.get("status", "?"))) for r in results) or "no actions"
+        css = "success" if outcome == "executed" else "error"
+        headline = {
+            "executed": "Approved &rarr;",
+            "partial": "Approved, but some of it failed &rarr;",
+            "nothing": "Approved, but nothing ran &rarr;",
+        }[outcome]
+        return Response(
+            f'<div class="card {css}">{headline} {summary}</div>',
+            status=200,
+            mimetype="text/html",
+        )
