@@ -19,10 +19,25 @@ if str(_HELPERS) not in sys.path:
 
 from helpers.api import Response  # noqa: E402
 from api.message_async import MessageAsync  # noqa: E402
+from initialize import initialize_agent  # noqa: E402
 
 from relay_auth import RelayAuthError, check_relay_key  # noqa: E402
 
 _UNAUTHORIZED = '{"status": "unauthorized"}'
+
+SCOOPY_PROFILE = "scoopy"
+
+
+def build_scoopy_config():
+    """Agent config pinned to Scoopy's profile.
+
+    Agent Zero's use_context() (helpers/context_utils.py:9-28) builds every
+    context with a bare initialize_agent() and no profile, so a context created
+    through this endpoint answers as vanilla Agent Zero, with none of Scoopy's
+    prompt, tools or approval gate. Verified live 2026-07-21: the reply was
+    "I'm Agent Zero, your AI assistant."
+    """
+    return initialize_agent(override_settings={"agent_profile": SCOOPY_PROFILE})
 
 
 class ScoopyChat(MessageAsync):
@@ -47,4 +62,19 @@ class ScoopyChat(MessageAsync):
             check_relay_key(request.headers.get("X-API-KEY"))
         except RelayAuthError:
             return Response(_UNAUTHORIZED, status=401, mimetype="application/json")
+
+        from agent import AgentContext
+
+        ctxid = ""
+        if request.content_type and request.content_type.startswith("multipart/form-data"):
+            ctxid = request.form.get("context", "") or ""
+        elif request.is_json:
+            ctxid = (request.get_json(silent=True) or {}).get("context", "") or ""
+
+        # Create with Scoopy's profile if this thread has no context yet.
+        # AgentContext.get returns None for an unknown id; the parent's
+        # use_context would then build one with the default profile.
+        if ctxid and AgentContext.get(ctxid) is None:
+            AgentContext(config=build_scoopy_config(), id=ctxid, set_current=True)
+
         return await super().process(input, request)
