@@ -2,20 +2,31 @@ allow_chat_override: true
 
 chat_model:
   provider: "openrouter"
-  # Changed from anthropic/claude-sonnet-4.6 on 2026-07-22, Liam D's call.
-  # Verified against the live OpenRouter model list rather than guessed:
-  #   moonshotai/kimi-k3   ctx 1,048,576   $3.00/M in, $15.00/M out
-  # For comparison, kimi-k2.6 is $0.68/M in and $3.42/M out at 262k context,
-  # so this is roughly 5x the input cost for 4x the context. Fine for chat,
-  # worth watching once he is waking on every webhook and running overnight.
+  # The EVERYDAY model. Deliberately the cheap tier.
+  #
+  # Was moonshotai/kimi-k3 ($3.00/M in, $15.00/M out, 1M context) from
+  # 2026-07-22 until later the same day, when measuring real turns made the
+  # trade look wrong: median 27.6s to Scoopy's first word, and almost all of
+  # what he is actually asked is "what is on today" or "look up this customer".
+  # Paying top rates, on a context window a conversation about dog waste will
+  # never fill, to answer those is waste.
+  #
+  # Hard problems are handled by stepping up rather than by paying for the big
+  # model all the time: the think_harder tool switches this conversation to the
+  # "Max Power" preset for one turn, and a person can pin it for a whole thread.
+  # See plugins/scoopy/helpers/care_mode.py.
+  #
+  # ctx_history is 0.7 of the window, so a smaller window is also a cap on how
+  # much history is fed back each turn. At 1M that allowed roughly 734k tokens of
+  # history per call, which is both slow and, at $3/M in, expensive.
   #
   # NOTE: this is a DEFAULT. If usr/settings.json holds a saved model choice it
   # wins over this file. That file now lives on the persistent disk, so a value
   # saved through the settings UI will survive restarts and silently override
   # this. If a model change appears not to take effect, look there first.
-  name: "moonshotai/kimi-k3"
+  name: "moonshotai/kimi-k2.5"
   api_base: ""
-  ctx_length: 1048576
+  ctx_length: 128000
   ctx_history: 0.7
   vision: true
   max_embeds: 10
