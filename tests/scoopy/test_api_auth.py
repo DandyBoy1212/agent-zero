@@ -188,3 +188,32 @@ def test_settings_get_agrees_with_what_is_actually_enforced(monkeypatch, key):
     reported = _run(_build(ScoopySettingsGet), _Req({"X-API-KEY": key}))
     assert reported["auto_approve"] == sno._auto_approve_enabled()
     assert reported["auto_approve"] is False
+
+
+def test_inbox_json_passes_through_the_cards_human_fields(monkeypatch, key):
+    """This projection is a fixed field list, so anything added to the card
+    upstream is silently dropped here. It already had been: summary, detail,
+    customer_name and trigger_context were added to the card and never reached
+    the surface that renders them, which would have shipped a card with a blank
+    question."""
+    import scoopy_inbox_json as mod
+    from scoopy_inbox_json import ScoopyInboxJson
+    from approval import ApprovalStore
+
+    store = ApprovalStore(ttl_seconds=60)
+    store.issue(card={
+        "contact_id": "abc", "draft": "", "reasoning": "r",
+        "action_type": "in_scope", "pending_actions": [],
+        "summary": "Add sanitisation for Karen Mitchell?",
+        "detail": "Adds £12.00 per month.",
+        "customer_name": "Karen Mitchell",
+        "trigger_context": "asked",
+    })
+    monkeypatch.setattr(mod, "default_store", store)
+
+    result = _run(_build(ScoopyInboxJson), _Req({"X-API-KEY": key}))
+    card = result["cards"][0]
+    assert card["summary"] == "Add sanitisation for Karen Mitchell?"
+    assert card["detail"] == "Adds £12.00 per month."
+    assert card["customer_name"] == "Karen Mitchell"
+    assert card["trigger_context"] == "asked"

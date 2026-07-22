@@ -44,6 +44,16 @@ class ScoopyInboxJson(ApiHandler):
                 "action_type": card.get("action_type"),
                 "action_count": len(card.get("pending_actions", [])),
                 "skill_names": [a.get("skill") for a in card.get("pending_actions", [])],
+                # The human-facing face of the card. Added to the card object
+                # earlier today but not to this projection, which would have
+                # shipped a card whose question was blank: the chat surface
+                # renders from here and nothing else. A fixed projection
+                # silently drops anything added upstream, which is exactly the
+                # failure this line existed to cause.
+                "summary": card.get("summary", ""),
+                "detail": card.get("detail", ""),
+                "customer_name": card.get("customer_name", ""),
+                "trigger_context": card.get("trigger_context", "unknown"),
             })
         log("inbox_json_view", count=len(cards))
         return {"cards": cards}
