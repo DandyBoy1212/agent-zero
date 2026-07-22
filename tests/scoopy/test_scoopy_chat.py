@@ -146,3 +146,31 @@ def test_chat_does_not_reintroduce_the_open_endpoint_pattern():
         assert "check_relay_key" in source, (
             f"{handler_cls.__name__} lost its in-body relay-key gate"
         )
+
+
+def test_transcribe_rejects_a_request_with_no_key(relay_key):
+    """Agent Zero's own /api/transcribe is session-gated and answers a
+    server-to-server call with 403 (verified against production 2026-07-22),
+    so the relay needs a key-gated one of its own."""
+    from scoopy_transcribe import ScoopyTranscribe
+
+    result = _run(_build(ScoopyTranscribe), _JsonReq())
+    assert result.status_code == 401
+
+
+def test_transcribe_rejects_a_wrong_key(relay_key):
+    from scoopy_transcribe import ScoopyTranscribe
+
+    result = _run(_build(ScoopyTranscribe), _JsonReq({"X-API-KEY": "nope"}))
+    assert result.status_code == 401
+
+
+def test_transcribe_keeps_the_gate_in_the_body():
+    """The framework flags stay False because the gate reads the environment
+    rather than settings.json, which is wiped on restart. Guard against a
+    later tidy-up deleting the in-body check."""
+    import inspect
+
+    from scoopy_transcribe import ScoopyTranscribe
+
+    assert "check_relay_key" in inspect.getsource(ScoopyTranscribe)
