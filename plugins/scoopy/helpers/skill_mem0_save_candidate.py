@@ -17,6 +17,7 @@ def mem0_save_candidate(
     namespace: str,
     fact: str,
     why_save: str,
+    taught_by: str = "unknown",
 ) -> dict[str, Any]:
     log("skill_helper_call", name="mem0_save_candidate", contact_id=contact_id, namespace=namespace)
     result = notify_owner(
@@ -27,7 +28,7 @@ def mem0_save_candidate(
         pending_actions=[
             {
                 "skill": "mem0_persist",
-                "args": {"namespace": namespace, "fact": fact},
+                "args": {"namespace": namespace, "fact": fact, "taught_by": taught_by},
             }
         ],
     )

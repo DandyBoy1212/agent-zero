@@ -3,9 +3,14 @@ Queue a fact for owner approval before persisting to Mem0. Use when you encounte
 
 **args:**
 - contact_id: GHL contact id (required, even for business: namespace — used to route the curation card)
-- namespace: contact:{id} | business:scoop_patrol | procedures:scoop_patrol (required)
+- namespace: contact:{id} | business:scoop_patrol | procedures:scoop_patrol | staff:{email} (required)
 - fact: the thing worth remembering, in plain English (required)
 - why_save: one-line why this is worth remembering (required)
+- taught_by: the email from the `[staff: ...]` line, or "unknown" if there is no such line (required)
+
+`taught_by` is who SAID it. It is stored separately from who approved it, because
+those are usually different people and a shared memory nobody can trace is a
+shared memory nobody can correct.
 
 **usage:**
 ~~~json

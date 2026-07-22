@@ -18,12 +18,18 @@ def mem0_persist(
     fact: str,
     reasoning: str,
     approver: str,
+    taught_by: str = "unknown",
     client,  # GhlClient passed by dispatcher (used for the auto-note)
     mem0_client: Mem0Client | None = None,
 ) -> dict[str, Any]:
     log("skill_helper_call", name="mem0_persist", namespace=namespace)
     mc = mem0_client or Mem0Client()
     metadata = {
+        # approved_by is who said yes. taught_by is who actually said the thing.
+        # They are usually different people: Mick tells Scoopy something and
+        # Liam approves it. Recording only the approver makes a shared memory
+        # untraceable, so a wrong fact cannot be chased back to its source.
+        "taught_by": taught_by,
         "approved_by": approver,
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "reason": reasoning,
