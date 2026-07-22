@@ -3,15 +3,35 @@ import pytest
 from mem0_client import Mem0Client
 
 
-def test_search_passes_namespace_as_user_id():
+def test_search_passes_namespace_as_a_filter_not_a_top_level_kwarg():
+    """mem0ai 2.x rejects user_id as a top-level search kwarg:
+
+        Top-level entity parameters frozenset({'user_id'}) are not supported
+        in search(). Use filters={'user_id': '...'} instead.
+
+    This test previously asserted the OLD shape, so it passed for months while
+    every search Scoopy ran failed in production. It was verifying that the
+    code did what it did, rather than that it worked.
+    """
     inner = MagicMock()
     inner.search.return_value = [{"id": "m1", "memory": "fact"}]
     mc = Mem0Client(api_key="x", client=inner)
     out = mc.search(namespace="contact:abc", query="payment", limit=3)
     assert out == [{"id": "m1", "memory": "fact"}]
     inner.search.assert_called_once_with(
-        query="payment", user_id="contact:abc", limit=3
+        "payment",
+        options={"filters": {"user_id": "contact:abc"}, "top_k": 3},
     )
+
+
+def test_search_never_passes_user_id_at_the_top_level():
+    """Guard against a well-meaning revert. This is the exact call that errors."""
+    inner = MagicMock()
+    inner.search.return_value = []
+    Mem0Client(api_key="x", client=inner).search(namespace="business:scoop_patrol", query="gate code")
+    _, kwargs = inner.search.call_args
+    assert "user_id" not in kwargs
+    assert "limit" not in kwargs
 
 
 def test_search_normalizes_dict_response_with_results_key():

@@ -40,7 +40,20 @@ class Mem0Client:
         if not namespace:
             return []
         with timed("mem0", op="search", namespace=namespace, query=query) as ctx:
-            results = self._client.search(query=query, user_id=namespace, limit=limit)
+            # mem0ai 2.x moved these out of top-level kwargs. Calling the old
+            # way fails with:
+            #   Top-level entity parameters frozenset({'user_id'}) are not
+            #   supported in search(). Use filters={'user_id': '...'} instead.
+            # Observed live 2026-07-22: every search Scoopy has ever run has
+            # errored this way, while add() still accepts user_id as a kwarg
+            # (its own docstring says so). So memories were being written
+            # correctly and never once read back. The failure was invisible
+            # because Agent Zero's own vector memory answered instead, and
+            # Scoopy reported "memory's working fine".
+            results = self._client.search(
+                query,
+                options={"filters": {"user_id": namespace}, "top_k": limit},
+            )
             # Normalize: SDK may return list-of-dicts directly OR {"results": [...]}
             if isinstance(results, dict):
                 results = results.get("results") or results.get("memories") or []
