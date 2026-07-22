@@ -74,6 +74,18 @@ RUN bash /ins/post_install.sh $BRANCH
 # (no cp at runtime = Flask starts in <1 second, well within Render's health check window)
 RUN cp -rn --no-preserve=ownership,mode /git/agent-zero/. /a0
 
+# Stash a pristine copy of usr/ OUTSIDE the disk mount point.
+#
+# Render mounts the persistent disk at /a0/usr, which shadows everything the
+# image put there. The tree is empty in git (only .gitkeep files), but the
+# directories themselves are load-bearing: helpers/plugins.py:230 iterdir()s
+# /a0/usr/plugins with no existence check, so a missing directory crashes the
+# container on startup rather than degrading. Observed 2026-07-22 as a restart
+# loop the moment the disk was first attached.
+#
+# start_render.sh seeds from here on boot, no-clobber.
+RUN cp -a /a0/usr /a0-usr-skel && ls -1 /a0-usr-skel
+
 EXPOSE 10000
 
 RUN chmod +x /exe/initialize.sh /exe/run_A0.sh /exe/run_searxng.sh /exe/run_tunnel_api.sh /exe/start_render.sh
