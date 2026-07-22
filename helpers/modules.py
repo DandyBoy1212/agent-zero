@@ -69,13 +69,38 @@ def load_classes_from_file(
     # Get all classes in the module
     class_list = inspect.getmembers(module, inspect.isclass)
 
-    # Filter for classes that are subclasses of the given base_class
-    # iterate backwards to skip imported superclasses
-    for cls in reversed(class_list):
-        if cls[1] is not base_class and issubclass(cls[1], base_class):
-            classes.append(cls[1])
-            if one_per_file:
-                break
+    def _matches(cls) -> bool:
+        return cls is not base_class and issubclass(cls, base_class)
+
+    # Prefer classes actually DEFINED in this file over ones it imported.
+    #
+    # This used to walk the member list backwards and take the first match,
+    # with the comment "iterate backwards to skip imported superclasses". That
+    # works only by accident: inspect.getmembers sorts alphabetically, so
+    # reversing it picks whichever name sorts LAST, and a subclass only wins if
+    # its name happens to sort after its parent's.
+    #
+    # ScoopyChat beat MessageAsync and ScoopyChatPoll beat Poll, so the trick
+    # looked sound. ScoopyTranscribe lost to Transcribe, because S sorts before
+    # T. The route then dispatched to Agent Zero's stock handler, which requires
+    # CSRF, so every server-to-server voice transcription answered 403 with
+    # "CSRF token missing or invalid" no matter what the subclass declared.
+    # Verified against production 2026-07-22 and reproduced from the names
+    # alone. Renaming the class would have hidden it until the next collision.
+    #
+    # `__module__` is the honest test of "defined here", and it is exactly what
+    # the original comment was reaching for.
+    own = [c for _, c in class_list if _matches(c) and c.__module__ == module.__name__]
+
+    # Falls back to the old behaviour when a file genuinely only re-exports a
+    # handler, so nothing that relied on that keeps working by luck alone.
+    if not own:
+        own = [c for _, c in reversed(class_list) if _matches(c)]
+
+    for cls in own:
+        classes.append(cls)
+        if one_per_file:
+            break
 
     return classes
 
