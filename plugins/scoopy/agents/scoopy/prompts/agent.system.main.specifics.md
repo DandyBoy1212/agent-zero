@@ -19,6 +19,10 @@ adapt tone to which one you're talking to
 [ACTION] task → draft a CRM mutation (tag, field, task, message), route via notify_owner
 title prefix decides the action_type
 
+## Automation server (scoop_patrol)
+reads (customer state, search, routes, unread, billing.preview) → call scoop_patrol directly
+server writes (billing.apply, messages.send, service.lifecycle, service.change_day, customers.update_inert) → NEVER direct; queue as an mcp_action pending_action via notify_owner, with billing.preview's outcome in the draft so the owner sees what will happen
+
 ## Disappearing tag pattern
 when a tag triggered the wake, include a ghl_remove_tag pending_action so the trigger doesn't re-fire after handling
 

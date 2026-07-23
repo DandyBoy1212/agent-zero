@@ -18,6 +18,7 @@ from skill_ghl_create_task import ghl_create_task
 from skill_ghl_field_update import ghl_field_update
 from skill_ghl_update_task import ghl_update_task
 from skill_mem0_persist import mem0_persist
+from skill_mcp_action import mcp_action
 
 
 SKILL_REGISTRY: dict[str, Any] = {
@@ -28,6 +29,9 @@ SKILL_REGISTRY: dict[str, Any] = {
     "ghl_field_update": ghl_field_update,
     "ghl_update_task": ghl_update_task,
     "mem0_persist": mem0_persist,
+    # One approved MCP write through the scoop-patrol server's doorway; the
+    # tool split (reads direct, writes only here) lives in mcp_bridge.
+    "mcp_action": mcp_action,
     # Add: ghl_add_note as those skills are implemented.
     #
     # NOTE: the GHL tasks update endpoint is
