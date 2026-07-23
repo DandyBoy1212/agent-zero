@@ -6,12 +6,17 @@ token, authorises the tool, runs it, and logs every call and refusal to
 skill_gap_reports itself, so nothing here needs to log for compliance —
 scoopy_logging lines are operator convenience only.
 
-Configuration comes from usr/.env on the persistent disk (the same file the
-rest of Agent Zero reads through helpers.dotenv), falling back to process
-env:
+Configuration, in order:
 
-    SCOOP_MCP_URL      e.g. https://<li-am-1 host>/mcp
-    MCP_TOKEN_SCOOPY   Scoopy's own bearer token (matches li-am-1's env)
+  1. usr/.env on the persistent disk / process env:
+         SCOOP_MCP_URL      e.g. https://<li-am-1 host>/mcp
+         MCP_TOKEN_SCOOPY   Scoopy's own bearer token
+  2. The shared Firestore doc service_config/scoopy_mcp, which li-am-1
+     publishes at ITS boot from its own env (see the automation repo's
+     execution/mcp_token_handoff.py). Machine-to-machine handoff: no human
+     carries the token between two dashboards, and revoking it in li-am-1's
+     Render env clears the doc on li-am-1's next boot. Cached per process
+     after the first successful read.
 
 Unconfigured is a loud McpBridgeError at call time, never a silent no-op:
 a tool that cannot reach the server must say so in-band.
@@ -58,6 +63,33 @@ class McpBridgeError(Exception):
     """The MCP call could not be made or the server refused/failed it."""
 
 
+_FIRESTORE_CONFIG_CACHE: tuple[str, str] | None = None
+
+
+def _config_from_firestore() -> tuple[str, str] | None:
+    """The doc li-am-1 publishes for us; cached after the first good read."""
+    global _FIRESTORE_CONFIG_CACHE
+    if _FIRESTORE_CONFIG_CACHE is not None:
+        return _FIRESTORE_CONFIG_CACHE
+    try:
+        from firestore_client import _build_client
+        client = _build_client()
+        if client is None:
+            return None
+        snap = client.collection("service_config").document("scoopy_mcp").get()
+        if not snap.exists:
+            return None
+        data = snap.to_dict() or {}
+        url, token = data.get("url"), data.get("token")
+        if url and token:
+            _FIRESTORE_CONFIG_CACHE = (str(url).rstrip("/"), str(token))
+            log("mcp_config_from_firestore", url=str(url))
+            return _FIRESTORE_CONFIG_CACHE
+    except Exception as e:
+        log_error("mcp_config_firestore_failed", e)
+    return None
+
+
 def _config() -> tuple[str, str]:
     url = token = None
     try:
@@ -68,12 +100,16 @@ def _config() -> tuple[str, str]:
         pass
     url = url or os.getenv("SCOOP_MCP_URL")
     token = token or os.getenv("MCP_TOKEN_SCOOPY")
-    if not url or not token:
-        raise McpBridgeError(
-            "scoop-patrol MCP is not configured: set SCOOP_MCP_URL and "
-            "MCP_TOKEN_SCOOPY in usr/.env on the disk"
-        )
-    return url.rstrip("/"), token
+    if url and token:
+        return url.rstrip("/"), token
+    from_fs = _config_from_firestore()
+    if from_fs:
+        return from_fs
+    raise McpBridgeError(
+        "scoop-patrol MCP is not configured: no SCOOP_MCP_URL/MCP_TOKEN_SCOOPY "
+        "in usr/.env and no service_config/scoopy_mcp doc in Firestore (does "
+        "li-am-1 have MCP_TOKEN_SCOOPY set, and has it booted since?)"
+    )
 
 
 def call_mcp(
